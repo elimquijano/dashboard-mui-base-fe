@@ -12,6 +12,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
+  withCredentials: true, // Para enviar cookies si usas sesiones
 });
 
 // Interceptor para agregar token de autenticación
@@ -28,22 +29,61 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor para manejar respuestas
+// Interceptor para manejar respuestas y errores
 api.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Si el token ha expirado (401) y no hemos intentado refrescar
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Intentar refrescar el token
+        const refreshResponse = await api.post('/auth/refresh');
+        const newToken = refreshResponse.data.token;
+        
+        // Actualizar el token en localStorage
+        localStorage.setItem('auth_token', newToken);
+        
+        // Reintentar la petición original con el nuevo token
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+        
+      } catch (refreshError) {
+        // Si el refresh falla, limpiar sesión y redirigir
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // Para otros errores 401 (después del retry) o si no hay token
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
     
+    // Manejo de errores 403 (Forbidden)
     if (error.response?.status === 403) {
       Swal.fire({
         title: 'Access Denied',
         text: 'You do not have permission to perform this action.',
+        icon: 'error',
+        confirmButtonColor: '#673ab7',
+      });
+    }
+
+    // Manejo de errores de red
+    if (!error.response) {
+      Swal.fire({
+        title: 'Network Error',
+        text: 'Please check your internet connection and try again.',
         icon: 'error',
         confirmButtonColor: '#673ab7',
       });
@@ -61,7 +101,7 @@ export const authAPI = {
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (data) => api.post('/auth/reset-password', data),
   refreshToken: () => api.post('/auth/refresh'),
-  me: () => api.get('/auth/me'),
+  me: () => api.get('/auth/me'), // Para verificar el estado de la sesión
 };
 
 // Funciones de API para usuarios

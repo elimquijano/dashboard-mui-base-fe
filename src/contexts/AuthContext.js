@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState } from 'react';
-import Swal from 'sweetalert2';
-import withReactContent from 'sweetalert2-react-content';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
+import { authAPI } from "../utils/api";
 
 const MySwal = withReactContent(Swal);
 
@@ -9,238 +10,235 @@ const AuthContext = createContext(undefined);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
 
-// Usuarios de prueba con diferentes roles y privilegios
-const mockUsers = [
-  {
-    id: '1',
-    email: 'admin@berry.com',
-    password: 'admin123',
-    firstName: 'John',
-    lastName: 'Doe',
-    role: 'Super Admin',
-    avatar: 'JD',
-    permissions: [
-      // Dashboard Module
-      'dashboard.view',
-      'dashboard.analytics',
-      
-      // Widget Module
-      'widget.statistics',
-      'widget.data',
-      'widget.chart',
-      
-      // User Management Module
-      'users.view',
-      'users.create',
-      'users.edit',
-      'users.delete',
-      'users.roles',
-      'users.permissions',
-      
-      // Application Module
-      'customers.view',
-      'customers.details',
-      'chat.view',
-      'kanban.view',
-      'mail.view',
-      'calendar.view',
-      
-      // System Module
-      'system.settings',
-      'system.logs',
-      'system.backup',
-    ]
-  },
-  {
-    id: '2',
-    email: 'manager@berry.com',
-    password: 'manager123',
-    firstName: 'Jane',
-    lastName: 'Smith',
-    role: 'Manager',
-    avatar: 'JS',
-    permissions: [
-      'dashboard.view',
-      'dashboard.analytics',
-      'widget.statistics',
-      'widget.data',
-      'users.view',
-      'users.edit',
-      'customers.view',
-      'customers.details',
-      'chat.view',
-      'mail.view',
-      'calendar.view',
-    ]
-  },
-  {
-    id: '3',
-    email: 'editor@berry.com',
-    password: 'editor123',
-    firstName: 'Mike',
-    lastName: 'Johnson',
-    role: 'Content Editor',
-    avatar: 'MJ',
-    permissions: [
-      'dashboard.view',
-      'widget.statistics',
-      'customers.view',
-      'chat.view',
-      'kanban.view',
-    ]
-  },
-  {
-    id: '4',
-    email: 'user@berry.com',
-    password: 'user123',
-    firstName: 'Sarah',
-    lastName: 'Wilson',
-    role: 'Basic User',
-    avatar: 'SW',
-    permissions: [
-      'dashboard.view',
-      'widget.statistics',
-    ]
-  },
-  {
-    id: '5',
-    email: 'analyst@berry.com',
-    password: 'analyst123',
-    firstName: 'Tom',
-    lastName: 'Brown',
-    role: 'Data Analyst',
-    avatar: 'TB',
-    permissions: [
-      'dashboard.view',
-      'dashboard.analytics',
-      'widget.statistics',
-      'widget.data',
-      'widget.chart',
-    ]
-  }
-];
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // Inicialmente true para verificar sesión
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Función para verificar si hay una sesión válida
+  const checkAuthStatus = async () => {
+    const token = localStorage.getItem("auth_token");
+    const savedUser = localStorage.getItem("user");
+
+    if (!token || !savedUser) {
+      setLoading(false);
+      setIsInitialized(true);
+      return;
+    }
+
+    try {
+      // Verificar si el token es válido consultando al servidor
+      const response = await authAPI.me();
+
+      // CÓDIGO CORRECTO - Estructura de datos del API
+      const responseData = response.data;
+
+      // Creamos un nuevo objeto 'user' para el estado que combina los datos del usuario
+      // con la lista de permisos del nivel superior.
+      const userForState = {
+        ...responseData.user, // Copia todas las propiedades del usuario
+        permissions: responseData.permissions, // Sobrescribe/añade la propiedad 'permissions' con el array correcto
+      };
+
+      setUser(userForState);
+      localStorage.setItem("user", JSON.stringify(userForState));
+    } catch (error) {
+      console.error("Token validation failed:", error);
+
+      // Si el token no es válido, intentar con datos guardados localmente
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        if (parsedUser && parsedUser.permissions) {
+          setUser(parsedUser);
+        } else {
+          // Limpiar datos inválidos
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("user");
+        }
+      } catch (parseError) {
+        console.error("Error parsing saved user:", parseError);
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user");
+      }
+    } finally {
+      setLoading(false);
+      setIsInitialized(true);
+    }
+  };
+
+  // Verificar sesión al cargar la aplicación
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
 
   const login = async (email, password) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const foundUser = mockUsers.find(u => u.email === email && u.password === password);
-    
-    if (foundUser) {
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-      
-      // Show success alert
+    setLoading(true);
+    try {
+      // Intentar login con API
+      const response = await authAPI.login({ email, password });
+
+      // CÓDIGO CORRECTO - Estructura de datos del API
+      const responseData = response.data;
+
+      // Creamos un nuevo objeto 'user' para el estado que combina los datos del usuario
+      // con la lista de permisos del nivel superior.
+      const userForState = {
+        ...responseData.user, // Copia todas las propiedades del usuario
+        permissions: responseData.permissions, // Sobrescribe/añade la propiedad 'permissions' con el array correcto
+      };
+
+      setUser(userForState);
+      localStorage.setItem("auth_token", responseData.token);
+      localStorage.setItem("user", JSON.stringify(userForState));
+
       MySwal.fire({
-        title: 'Welcome Back!',
-        text: `Hello ${foundUser.firstName}, you have successfully logged in.`,
-        icon: 'success',
+        title: "Welcome Back!",
+        text: `Hello ${userForState.first_name}, you have successfully logged in.`,
+        icon: "success",
         timer: 2000,
         showConfirmButton: false,
         toast: true,
-        position: 'top-end',
+        position: "top-end",
       });
-      
+
       return true;
+    } catch (error) {
+      console.error("API login failed, trying mock data:", error);
+
+      MySwal.fire({
+        title: "Login Failed",
+        text: "Invalid email or password. Please try again.",
+        icon: "error",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#673ab7",
+      });
+
+      return false;
+    } finally {
+      setLoading(false);
     }
-    
-    // Show error alert
-    MySwal.fire({
-      title: 'Login Failed',
-      text: 'Invalid email or password. Please try again.',
-      icon: 'error',
-      confirmButtonText: 'OK',
-      confirmButtonColor: '#673ab7',
-    });
-    
-    return false;
   };
 
   const signup = async (userData) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const newUser = {
-      id: Date.now().toString(),
-      email: userData.email,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      role: 'Basic User',
-      avatar: userData.firstName.charAt(0) + userData.lastName.charAt(0),
-      permissions: ['dashboard.view', 'widget.statistics']
-    };
-    
-    setUser(newUser);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    
-    // Show success alert
-    MySwal.fire({
-      title: 'Account Created!',
-      text: `Welcome ${userData.firstName}! Your account has been created successfully.`,
-      icon: 'success',
-      confirmButtonText: 'Get Started',
-      confirmButtonColor: '#673ab7',
-    });
-    
-    return true;
+    setLoading(true);
+    try {
+      // Intentar registro con API
+      const response = await authAPI.register(userData);
+
+      // CÓDIGO CORRECTO - Estructura de datos del API
+      const responseData = response.data;
+
+      // Creamos un nuevo objeto 'user' para el estado que combine los datos del usuario
+      // con la lista de permisos del nivel superior.
+      const userForState = {
+        ...responseData.user, // Copia todas las propiedades del usuario
+        permissions: responseData.permissions, // Sobrescribe/añade la propiedad 'permissions' con el array correcto
+      };
+
+      setUser(userForState);
+      localStorage.setItem("auth_token", responseData.token);
+      localStorage.setItem("user", JSON.stringify(userForState));
+
+      MySwal.fire({
+        title: "Account Created!",
+        text: `Welcome ${userData.first_name}! Your account has been created successfully.`,
+        icon: "success",
+        confirmButtonText: "Get Started",
+        confirmButtonColor: "#673ab7",
+      });
+
+      return true;
+    } catch (error) {
+      console.error("API signup failed, using mock data:", error);
+      MySwal.fire({
+        title: "Account Not Created!",
+        text: `Not possible to create account.`,
+        icon: "error",
+        confirmButtonText: "Try Again",
+        confirmButtonColor: "#673ab7",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
-    MySwal.fire({
-      title: 'Are you sure?',
-      text: 'You will be logged out of your account.',
-      icon: 'question',
+  const logout = async () => {
+    const result = await MySwal.fire({
+      title: "Are you sure?",
+      text: "You will be logged out of your account.",
+      icon: "question",
       showCancelButton: true,
-      confirmButtonColor: '#673ab7',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, logout',
-      cancelButtonText: 'Cancel'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setUser(null);
-        localStorage.removeItem('user');
-        
-        MySwal.fire({
-          title: 'Logged Out',
-          text: 'You have been successfully logged out.',
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false,
-          toast: true,
-          position: 'top-end',
-        });
-      }
+      confirmButtonColor: "#673ab7",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, logout",
+      cancelButtonText: "Cancel",
     });
+
+    if (result.isConfirmed) {
+      try {
+        // Intentar logout desde API
+        await authAPI.logout();
+      } catch (error) {
+        console.error("API logout failed:", error);
+      }
+
+      // Limpiar estado local
+      setUser(null);
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user");
+
+      MySwal.fire({
+        title: "Logged Out",
+        text: "You have been successfully logged out.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+        toast: true,
+        position: "top-end",
+      });
+    }
   };
 
   const hasPermission = (permission) => {
     return user?.permissions?.includes(permission) || false;
   };
 
-  // Initialize user from localStorage
-  React.useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+  const refreshToken = async () => {
+    try {
+      const response = await authAPI.refreshToken();
+      localStorage.setItem("auth_token", response.data.token);
+      return true;
+    } catch (error) {
+      console.error("Token refresh failed:", error);
+      logout();
+      return false;
     }
-  }, []);
+  };
+
+  // Función para actualizar el usuario (útil para actualizaciones de perfil)
+  const updateUser = (updatedUserData) => {
+    const updatedUser = { ...user, ...updatedUserData };
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+  };
 
   const value = {
     user,
     login,
     signup,
     logout,
+    loading,
+    isInitialized,
     isAuthenticated: !!user,
     hasPermission,
+    refreshToken,
+    updateUser,
+    checkAuthStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

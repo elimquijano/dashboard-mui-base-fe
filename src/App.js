@@ -1,34 +1,56 @@
-import React from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import { CssBaseline } from "@mui/material";
-import { CustomThemeProvider } from "./contexts/ThemeContext";
-import { AuthProvider } from "./contexts/AuthContext";
-import { ProtectedRoute } from "./components/ProtectedRoute";
-import { DashboardLayout } from "./layouts/DashboardLayout";
-import { Landing } from "./pages/Landing";
-import { Login } from "./pages/Login";
-import { Signup } from "./pages/Signup";
-import { ForgotPassword } from "./pages/ForgotPassword";
-import { Unauthorized } from "./pages/Unauthorized";
-import { Dashboard } from "./pages/Dashboard";
-import { Analytics } from "./pages/Analytics";
-import { Users } from "./pages/Users";
-import { UserRoles } from "./pages/UserRoles";
-import { UserPermissions } from "./pages/UserPermissions";
-import { Settings } from "./pages/Settings";
-import { Statistics } from "./pages/Statistics";
-import { DataPage } from "./pages/DataPage";
-//import { ChartPage } from './pages/ChartPage';
-//import { Customers } from './pages/Customers';
-//import { Chat } from './pages/Chat';
-//import { Kanban } from './pages/Kanban';
-//import { Mail } from './pages/Mail';
-//import { Calendar } from './pages/Calendar';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { CssBaseline, CircularProgress, Box } from '@mui/material';
+import { CustomThemeProvider } from './contexts/ThemeContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { DashboardLayout } from './layouts/DashboardLayout';
+import { Landing } from './pages/Landing';
+import { Login } from './pages/Login';
+import { Signup } from './pages/Signup';
+import { ForgotPassword } from './pages/ForgotPassword';
+import { Unauthorized } from './pages/Unauthorized';
+import { Dashboard } from './pages/Dashboard';
+import { Analytics } from './pages/Analytics';
+import { Users } from './pages/Users';
+import { UserRoles } from './pages/UserRoles';
+import { UserPermissions } from './pages/UserPermissions';
+import { Settings } from './pages/Settings';
+import { Statistics } from './pages/Statistics';
+import { DataPage } from './pages/DataPage';
+import { ChartPage } from './pages/ChartPage';
+import { Customers } from './pages/Customers';
+import { Chat } from './pages/Chat';
+import { Kanban } from './pages/Kanban';
+import { Mail } from './pages/Mail';
+import { Calendar } from './pages/Calendar';
+
+// Componente para manejar rutas públicas (redirigir si ya está logueado)
+const PublicRoute = ({ children }) => {
+  const { isAuthenticated, loading, isInitialized } = useAuth();
+
+  if (!isInitialized || loading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Si ya está autenticado, redirigir al dashboard
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
 
 function App() {
   return (
@@ -37,14 +59,44 @@ function App() {
       <AuthProvider>
         <Router>
           <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
+            {/* Rutas Públicas */}
+            <Route 
+              path="/" 
+              element={
+                <PublicRoute>
+                  <Landing />
+                </PublicRoute>
+              } 
+            />
+            <Route 
+              path="/login" 
+              element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              } 
+            />
+            <Route 
+              path="/signup" 
+              element={
+                <PublicRoute>
+                  <Signup />
+                </PublicRoute>
+              } 
+            />
+            <Route 
+              path="/forgot-password" 
+              element={
+                <PublicRoute>
+                  <ForgotPassword />
+                </PublicRoute>
+              } 
+            />
+            
+            {/* Página de acceso denegado */}
             <Route path="/unauthorized" element={<Unauthorized />} />
-
-            {/* Protected Dashboard Routes */}
+            
+            {/* Rutas Protegidas del Dashboard */}
             <Route
               path="/dashboard"
               element={
@@ -54,7 +106,7 @@ function App() {
               }
             >
               <Route index element={<Dashboard />} />
-
+              
               {/* Analytics Routes */}
               <Route
                 path="analytics-dashboard"
@@ -64,7 +116,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
+              
               {/* Widget Routes */}
               <Route
                 path="statistics"
@@ -86,11 +138,11 @@ function App() {
                 path="chart"
                 element={
                   <ProtectedRoute permission="widget.chart">
-                    {/* <ChartPage /> */}
+                    <ChartPage />
                   </ProtectedRoute>
                 }
               />
-
+              
               {/* User Management Routes */}
               <Route
                 path="users"
@@ -116,13 +168,13 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
+              
               {/* Application Routes */}
               <Route
                 path="customers"
                 element={
                   <ProtectedRoute permission="customers.view">
-                    {/* <Customers /> */}
+                    <Customers />
                   </ProtectedRoute>
                 }
               />
@@ -138,7 +190,7 @@ function App() {
                 path="chat"
                 element={
                   <ProtectedRoute permission="chat.view">
-                    {/* <Chat /> */}
+                    <Chat />
                   </ProtectedRoute>
                 }
               />
@@ -146,7 +198,7 @@ function App() {
                 path="kanban"
                 element={
                   <ProtectedRoute permission="kanban.view">
-                    {/* <Kanban /> */}
+                    <Kanban />
                   </ProtectedRoute>
                 }
               />
@@ -154,7 +206,7 @@ function App() {
                 path="mail"
                 element={
                   <ProtectedRoute permission="mail.view">
-                    {/* <Mail /> */}
+                    <Mail />
                   </ProtectedRoute>
                 }
               />
@@ -162,11 +214,11 @@ function App() {
                 path="calendar"
                 element={
                   <ProtectedRoute permission="calendar.view">
-                    {/* <Calendar /> */}
+                    <Calendar />
                   </ProtectedRoute>
                 }
               />
-
+              
               {/* System Routes */}
               <Route
                 path="settings"
@@ -176,12 +228,13 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
-              {/* Profile Route */}
+              
+              {/* Profile Route - Accesible para todos los usuarios autenticados */}
               <Route path="profile" element={<div>Profile Page</div>} />
+              }
             </Route>
-
-            {/* Fallback */}
+            
+            {/* Fallback - Redirigir a landing si no está autenticado, o dashboard si lo está */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>

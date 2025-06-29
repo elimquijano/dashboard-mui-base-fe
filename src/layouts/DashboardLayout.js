@@ -38,14 +38,7 @@ import {
   Person as PersonIcon,
   Logout as LogoutIcon,
   BarChart as BarChartIcon,
-  GetApp as ExportIcon,
   Storage as StorageIcon,
-  Backup as BackupIcon,
-  History as HistoryIcon,
-  Fullscreen as FullscreenIcon,
-  Language as LanguageIcon,
-  DarkMode as DarkModeIcon,
-  LightMode as LightModeIcon,
   TrendingUp as TrendingUpIcon,
   PieChart as PieChartIcon,
   Chat as ChatIcon,
@@ -54,12 +47,20 @@ import {
   ViewKanban as KanbanIcon,
   Group as GroupIcon,
   Settings as SettingsIcon,
+  Fullscreen as FullscreenIcon,
+  Language as LanguageIcon,
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme as useCustomTheme } from '../contexts/ThemeContext';
+import { notificationsAPI } from '../utils/api';
 
 const drawerWidth = 260;
+const collapsedDrawerWidth = 64;
 
 // Definición de módulos exactamente como en las imágenes
 const menuModules = [
@@ -228,13 +229,20 @@ export const DashboardLayout = () => {
   const location = useLocation();
   const { user, logout, hasPermission } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
   const [notifications, setNotifications] = useState(mockNotifications);
 
+  const currentDrawerWidth = sidebarCollapsed ? collapsedDrawerWidth : drawerWidth;
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleSidebarToggle = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
   };
 
   const handleMenu = (event) => {
@@ -260,6 +268,7 @@ export const DashboardLayout = () => {
   };
 
   const handleExpandClick = (text) => {
+    if (sidebarCollapsed) return; // Don't expand when collapsed
     setExpandedItems(prev => 
       prev.includes(text) 
         ? prev.filter(item => item !== text)
@@ -267,8 +276,14 @@ export const DashboardLayout = () => {
     );
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(notif => ({ ...notif, unread: false })));
+  const markAllAsRead = async () => {
+    try {
+      await notificationsAPI.markAllAsRead();
+      setNotifications(prev => prev.map(notif => ({ ...notif, unread: false })));
+    } catch (error) {
+      console.error('Error marking notifications as read:', error);
+      setNotifications(prev => prev.map(notif => ({ ...notif, unread: false })));
+    }
   };
 
   const unreadCount = notifications.filter(n => n.unread).length;
@@ -288,20 +303,20 @@ export const DashboardLayout = () => {
           <ListItemButton
             sx={{
               minHeight: 40,
-              justifyContent: 'initial',
-              px: 2,
+              justifyContent: sidebarCollapsed ? 'center' : 'initial',
+              px: sidebarCollapsed ? 1 : 2,
               py: 0.5,
-              pl: depth * 2 + 2,
+              pl: sidebarCollapsed ? 1 : depth * 2 + 2,
               backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
               borderRadius: 1,
-              mx: 1,
+              mx: sidebarCollapsed ? 0.5 : 1,
               mb: 0.5,
               '&:hover': {
                 backgroundColor: alpha(theme.palette.primary.main, 0.04),
               },
             }}
             onClick={() => {
-              if (hasChildren) {
+              if (hasChildren && !sidebarCollapsed) {
                 handleExpandClick(item.text);
               } else if (item.path) {
                 navigate(item.path);
@@ -311,7 +326,7 @@ export const DashboardLayout = () => {
             <ListItemIcon
               sx={{
                 minWidth: 0,
-                mr: 1.5,
+                mr: sidebarCollapsed ? 0 : 1.5,
                 justifyContent: 'center',
                 color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
                 fontSize: '1.2rem',
@@ -319,24 +334,28 @@ export const DashboardLayout = () => {
             >
               {item.icon}
             </ListItemIcon>
-            <ListItemText 
-              primary={item.text} 
-              sx={{ 
-                color: isActive ? theme.palette.primary.main : theme.palette.text.primary,
-                '& .MuiListItemText-primary': {
-                  fontWeight: isActive ? 600 : 400,
-                  fontSize: '0.875rem',
-                }
-              }}
-            />
-            {hasChildren && (
-              <IconButton size="small" sx={{ color: theme.palette.text.secondary, p: 0 }}>
-                {isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
-              </IconButton>
+            {!sidebarCollapsed && (
+              <>
+                <ListItemText 
+                  primary={item.text} 
+                  sx={{ 
+                    color: isActive ? theme.palette.primary.main : theme.palette.text.primary,
+                    '& .MuiListItemText-primary': {
+                      fontWeight: isActive ? 600 : 400,
+                      fontSize: '0.875rem',
+                    }
+                  }}
+                />
+                {hasChildren && (
+                  <IconButton size="small" sx={{ color: theme.palette.text.secondary, p: 0 }}>
+                    {isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                  </IconButton>
+                )}
+              </>
             )}
           </ListItemButton>
         </ListItem>
-        {hasChildren && (
+        {hasChildren && !sidebarCollapsed && (
           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               {item.children?.map(child => renderMenuItem(child, depth + 1))}
@@ -356,21 +375,23 @@ export const DashboardLayout = () => {
 
     return (
       <Box key={module.id} sx={{ mb: 2 }}>
-        <Typography
-          variant="caption"
-          sx={{
-            px: 2,
-            py: 1,
-            display: 'block',
-            color: theme.palette.text.secondary,
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-            fontSize: '0.75rem',
-          }}
-        >
-          {module.title}
-        </Typography>
+        {!sidebarCollapsed && (
+          <Typography
+            variant="caption"
+            sx={{
+              px: 2,
+              py: 1,
+              display: 'block',
+              color: theme.palette.text.secondary,
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              fontSize: '0.75rem',
+            }}
+          >
+            {module.title}
+          </Typography>
+        )}
         <List dense>
           {visibleItems.map(item => renderMenuItem(item))}
         </List>
@@ -385,9 +406,10 @@ export const DashboardLayout = () => {
         sx={{
           display: 'flex',
           alignItems: 'center',
-          px: 2,
+          px: sidebarCollapsed ? 1 : 2,
           py: 2,
           borderBottom: `1px solid ${theme.palette.divider}`,
+          justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
         }}
       >
         <Box
@@ -399,21 +421,37 @@ export const DashboardLayout = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            mr: 1,
+            mr: sidebarCollapsed ? 0 : 1,
           }}
         >
           <Typography variant="body2" sx={{ color: 'white', fontWeight: 700 }}>
             🍇
           </Typography>
         </Box>
-        <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
-          BERRY
-        </Typography>
+        {!sidebarCollapsed && (
+          <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
+            BERRY
+          </Typography>
+        )}
       </Box>
 
       {/* Menu Items */}
       <Box sx={{ flex: 1, overflow: 'auto', py: 1 }}>
         {menuModules.map(module => renderModule(module))}
+      </Box>
+
+      {/* Collapse Button */}
+      <Box sx={{ p: 1, borderTop: `1px solid ${theme.palette.divider}` }}>
+        <IconButton
+          onClick={handleSidebarToggle}
+          sx={{
+            width: '100%',
+            justifyContent: 'center',
+            color: theme.palette.text.secondary,
+          }}
+        >
+          {sidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+        </IconButton>
       </Box>
     </Box>
   );
@@ -424,12 +462,16 @@ export const DashboardLayout = () => {
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
+          width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
+          ml: { sm: `${currentDrawerWidth}px` },
           backgroundColor: theme.palette.background.paper,
           color: theme.palette.text.primary,
           boxShadow: 'none',
           borderBottom: `1px solid ${theme.palette.divider}`,
+          transition: theme.transitions.create(['width', 'margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.leavingScreen,
+          }),
         }}
       >
         <Toolbar sx={{ minHeight: '64px !important' }}>
@@ -768,7 +810,14 @@ export const DashboardLayout = () => {
       {/* Sidebar */}
       <Box
         component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        sx={{ 
+          width: { sm: currentDrawerWidth }, 
+          flexShrink: { sm: 0 },
+          transition: theme.transitions.create('width', {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.leavingScreen,
+          }),
+        }}
       >
         <Drawer
           variant="temporary"
@@ -794,8 +843,12 @@ export const DashboardLayout = () => {
             display: { xs: 'none', sm: 'block' },
             '& .MuiDrawer-paper': { 
               boxSizing: 'border-box', 
-              width: drawerWidth,
+              width: currentDrawerWidth,
               borderRight: `1px solid ${theme.palette.divider}`,
+              transition: theme.transitions.create('width', {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.leavingScreen,
+              }),
             },
           }}
           open
@@ -810,10 +863,14 @@ export const DashboardLayout = () => {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
           mt: '64px',
           backgroundColor: theme.palette.background.default,
           minHeight: 'calc(100vh - 64px)',
+          transition: theme.transitions.create(['width', 'margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.leavingScreen,
+          }),
         }}
       >
         <Outlet />
