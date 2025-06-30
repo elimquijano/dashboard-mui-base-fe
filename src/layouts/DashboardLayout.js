@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Drawer,
@@ -21,12 +21,11 @@ import {
   useTheme,
   alpha,
   Button,
-  Paper,
   Chip,
   Switch,
   FormControlLabel,
   Tooltip,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Menu as MenuIcon,
   Search as SearchIcon,
@@ -35,7 +34,6 @@ import {
   People as PeopleIcon,
   ExpandLess,
   ExpandMore,
-  Person as PersonIcon,
   Logout as LogoutIcon,
   BarChart as BarChartIcon,
   Storage as StorageIcon,
@@ -48,183 +46,176 @@ import {
   Group as GroupIcon,
   Settings as SettingsIcon,
   Fullscreen as FullscreenIcon,
-  Language as LanguageIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
-} from '@mui/icons-material';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useTheme as useCustomTheme } from '../contexts/ThemeContext';
-import { notificationsAPI } from '../utils/api';
+  Article as ArticleIcon,
+  FullscreenExit,
+} from "@mui/icons-material";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { useTheme as useCustomTheme } from "../contexts/ThemeContext";
+import { notificationsAPI } from "../utils/api";
 
 const drawerWidth = 260;
 const collapsedDrawerWidth = 64;
 
+const enterFullscreen = (element = document.documentElement) => {
+  if (element.requestFullscreen) element.requestFullscreen();
+  else if (element.mozRequestFullScreen) element.mozRequestFullScreen();
+  else if (element.webkitRequestFullscreen) element.webkitRequestFullscreen();
+  else if (element.msRequestFullscreen) element.msRequestFullscreen();
+};
+
+const exitFullscreen = () => {
+  if (document.exitFullscreen) document.exitFullscreen();
+  else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+  else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  else if (document.msExitFullscreen) document.msExitFullscreen();
+};
+
 // Definición de módulos exactamente como en las imágenes
 const menuModules = [
   {
-    id: 'dashboard',
-    title: 'Dashboard',
+    id: "dashboard",
+    title: "Dashboard",
     items: [
       {
-        text: 'Default',
+        text: "Default",
         icon: <DashboardIcon />,
-        path: '/dashboard',
-        permission: 'dashboard.view',
+        path: "/dashboard",
+        permission: "dashboard.view",
       },
       {
-        text: 'Analytics',
+        text: "Analytics",
         icon: <BarChartIcon />,
-        path: '/dashboard/analytics-dashboard',
-        permission: 'dashboard.analytics',
+        path: "/dashboard/analytics-dashboard",
+        permission: "dashboard.analytics",
       },
     ],
   },
   {
-    id: 'widget',
-    title: 'Widget',
+    id: "widget",
+    title: "Widget",
     items: [
       {
-        text: 'Statistics',
+        text: "Statistics",
         icon: <TrendingUpIcon />,
-        path: '/dashboard/statistics',
-        permission: 'widget.statistics',
+        path: "/dashboard/statistics",
+        permission: "widget.statistics",
       },
       {
-        text: 'Data',
+        text: "Data",
         icon: <StorageIcon />,
-        path: '/dashboard/data',
-        permission: 'widget.data',
+        path: "/dashboard/data",
+        permission: "widget.data",
       },
       {
-        text: 'Chart',
+        text: "Chart",
         icon: <PieChartIcon />,
-        path: '/dashboard/chart',
-        permission: 'widget.chart',
+        path: "/dashboard/chart",
+        permission: "widget.chart",
       },
     ],
   },
   {
-    id: 'application',
-    title: 'Application',
+    id: "application",
+    title: "Application",
     items: [
       {
-        text: 'Users',
+        text: "Users",
         icon: <PeopleIcon />,
-        path: '/dashboard/users',
-        permission: 'users.view',
+        path: "/dashboard/users",
+        permission: "users.view",
         expandable: true,
         children: [
           {
-            text: 'User List',
-            path: '/dashboard/users',
-            permission: 'users.view',
+            text: "User List",
+            path: "/dashboard/users",
+            permission: "users.view",
           },
           {
-            text: 'User Roles',
-            path: '/dashboard/users/roles',
-            permission: 'users.roles',
+            text: "User Roles",
+            path: "/dashboard/users/roles",
+            permission: "users.roles",
           },
           {
-            text: 'Permissions',
-            path: '/dashboard/users/permissions',
-            permission: 'users.permissions',
+            text: "Permissions",
+            path: "/dashboard/users/permissions",
+            permission: "users.permissions",
           },
         ],
       },
       {
-        text: 'Customer',
+        text: "Customer",
         icon: <GroupIcon />,
-        path: '/dashboard/customers',
-        permission: 'customers.view',
+        path: "/dashboard/customers",
+        permission: "customers.view",
         expandable: true,
         children: [
           {
-            text: 'Customer List',
-            path: '/dashboard/customers',
-            permission: 'customers.view',
+            text: "Customer List",
+            path: "/dashboard/customers",
+            permission: "customers.view",
           },
           {
-            text: 'Customer Details',
-            path: '/dashboard/customers/details',
-            permission: 'customers.details',
+            text: "Customer Details",
+            path: "/dashboard/customers/details",
+            permission: "customers.details",
           },
         ],
       },
       {
-        text: 'Chat',
+        text: "Chat",
         icon: <ChatIcon />,
-        path: '/dashboard/chat',
-        permission: 'chat.view',
+        path: "/dashboard/chat",
+        permission: "chat.view",
       },
       {
-        text: 'Kanban',
+        text: "Kanban",
         icon: <KanbanIcon />,
-        path: '/dashboard/kanban',
-        permission: 'kanban.view',
+        path: "/dashboard/kanban",
+        permission: "kanban.view",
       },
       {
-        text: 'Mail',
+        text: "Mail",
         icon: <MailIcon />,
-        path: '/dashboard/mail',
-        permission: 'mail.view',
+        path: "/dashboard/mail",
+        permission: "mail.view",
       },
       {
-        text: 'Calendar',
+        text: "Calendar",
         icon: <CalendarIcon />,
-        path: '/dashboard/calendar',
-        permission: 'calendar.view',
+        path: "/dashboard/calendar",
+        permission: "calendar.view",
       },
     ],
   },
-];
-
-// Mock notifications exactamente como en la imagen
-const mockNotifications = [
   {
-    id: 1,
-    user: 'John Doe',
-    avatar: 'JD',
-    message: 'It is a long established fact that a reader will be distracted',
-    time: '2 min ago',
-    type: 'message',
-    unread: true,
-  },
-  {
-    id: 2,
-    title: 'Store Verification Done',
-    message: 'We have successfully received your request.',
-    time: '2 min ago',
-    type: 'success',
-    unread: true,
-  },
-  {
-    id: 3,
-    title: 'Check Your Mail.',
-    message: 'All done! Now check your inbox as you\'re in for a sweet treat!',
-    time: '2 min ago',
-    type: 'info',
-    unread: false,
-    hasButton: true,
-    buttonText: 'Mail',
-  },
-  {
-    id: 4,
-    user: 'John Doe',
-    avatar: 'JD',
-    message: 'Uploaded two file on 21 Jan 2020',
-    time: '2 min ago',
-    type: 'file',
-    fileName: 'demo.jpg',
-    unread: false,
+    id: "system",
+    title: "System",
+    items: [
+      {
+        text: "Modules",
+        icon: <ArticleIcon />,
+        path: "/dashboard/modules",
+        permission: "system.settings",
+      },
+      {
+        text: "Settings",
+        icon: <SettingsIcon />,
+        path: "/dashboard/settings",
+        permission: "system.settings",
+      },
+    ],
   },
 ];
 
 export const DashboardLayout = () => {
   const theme = useTheme();
   const { isDarkMode, toggleDarkMode } = useCustomTheme();
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, hasPermission } = useAuth();
@@ -233,9 +224,62 @@ export const DashboardLayout = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const currentDrawerWidth = sidebarCollapsed ? collapsedDrawerWidth : drawerWidth;
+  const currentDrawerWidth = sidebarCollapsed
+    ? collapsedDrawerWidth
+    : drawerWidth;
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      // document.fullscreenElement devuelve el elemento en pantalla completa o null
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    // Añadimos un listener para el evento de cambio de pantalla completa
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    // Es importante limpiar el listener cuando el componente se desmonte
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const loadNotifications = async () => {
+    try {
+      const response = await notificationsAPI.getAll({ unread: true });
+      setNotifications(response.data.data || []);
+      setUnreadCount(response.data.unread_count || 0);
+    } catch (error) {
+      console.error("Error loading notifications:", error);
+      // Fallback a datos mock
+      const mockNotifications = [
+        {
+          id: 1,
+          type: "info",
+          title: "Welcome",
+          message: "Welcome to Berry Dashboard",
+          read_at: null,
+          created_at: new Date().toISOString(),
+        },
+      ];
+      setNotifications(mockNotifications);
+      setUnreadCount(1);
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    if (!isFullscreen) {
+      enterFullscreen();
+    } else {
+      exitFullscreen();
+    }
+  };
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -263,15 +307,15 @@ export const DashboardLayout = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate("/");
     handleClose();
   };
 
   const handleExpandClick = (text) => {
     if (sidebarCollapsed) return; // Don't expand when collapsed
-    setExpandedItems(prev => 
-      prev.includes(text) 
-        ? prev.filter(item => item !== text)
+    setExpandedItems((prev) =>
+      prev.includes(text)
+        ? prev.filter((item) => item !== text)
         : [...prev, text]
     );
   };
@@ -279,14 +323,18 @@ export const DashboardLayout = () => {
   const markAllAsRead = async () => {
     try {
       await notificationsAPI.markAllAsRead();
-      setNotifications(prev => prev.map(notif => ({ ...notif, unread: false })));
+      setNotifications((prev) =>
+        prev.map((notif) => ({ ...notif, read_at: new Date().toISOString() }))
+      );
+      setUnreadCount(0);
     } catch (error) {
-      console.error('Error marking notifications as read:', error);
-      setNotifications(prev => prev.map(notif => ({ ...notif, unread: false })));
+      console.error("Error marking notifications as read:", error);
+      setNotifications((prev) =>
+        prev.map((notif) => ({ ...notif, read_at: new Date().toISOString() }))
+      );
+      setUnreadCount(0);
     }
   };
-
-  const unreadCount = notifications.filter(n => n.unread).length;
 
   const renderMenuItem = (item, depth = 0) => {
     if (item.permission && !hasPermission(item.permission)) {
@@ -299,19 +347,21 @@ export const DashboardLayout = () => {
 
     return (
       <React.Fragment key={item.text}>
-        <ListItem disablePadding sx={{ display: 'block' }}>
+        <ListItem disablePadding sx={{ display: "block" }}>
           <ListItemButton
             sx={{
               minHeight: 40,
-              justifyContent: sidebarCollapsed ? 'center' : 'initial',
+              justifyContent: sidebarCollapsed ? "center" : "initial",
               px: sidebarCollapsed ? 1 : 2,
               py: 0.5,
               pl: sidebarCollapsed ? 1 : depth * 2 + 2,
-              backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
+              backgroundColor: isActive
+                ? alpha(theme.palette.primary.main, 0.08)
+                : "transparent",
               borderRadius: 1,
               mx: sidebarCollapsed ? 0.5 : 1,
               mb: 0.5,
-              '&:hover': {
+              "&:hover": {
                 backgroundColor: alpha(theme.palette.primary.main, 0.04),
               },
             }}
@@ -327,28 +377,39 @@ export const DashboardLayout = () => {
               sx={{
                 minWidth: 0,
                 mr: sidebarCollapsed ? 0 : 1.5,
-                justifyContent: 'center',
-                color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
-                fontSize: '1.2rem',
+                justifyContent: "center",
+                color: isActive
+                  ? theme.palette.primary.main
+                  : theme.palette.text.secondary,
+                fontSize: "1.2rem",
               }}
             >
               {item.icon}
             </ListItemIcon>
             {!sidebarCollapsed && (
               <>
-                <ListItemText 
-                  primary={item.text} 
-                  sx={{ 
-                    color: isActive ? theme.palette.primary.main : theme.palette.text.primary,
-                    '& .MuiListItemText-primary': {
+                <ListItemText
+                  primary={item.text}
+                  sx={{
+                    color: isActive
+                      ? theme.palette.primary.main
+                      : theme.palette.text.primary,
+                    "& .MuiListItemText-primary": {
                       fontWeight: isActive ? 600 : 400,
-                      fontSize: '0.875rem',
-                    }
+                      fontSize: "0.875rem",
+                    },
                   }}
                 />
                 {hasChildren && (
-                  <IconButton size="small" sx={{ color: theme.palette.text.secondary, p: 0 }}>
-                    {isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                  <IconButton
+                    size="small"
+                    sx={{ color: theme.palette.text.secondary, p: 0 }}
+                  >
+                    {isExpanded ? (
+                      <ExpandLess fontSize="small" />
+                    ) : (
+                      <ExpandMore fontSize="small" />
+                    )}
                   </IconButton>
                 )}
               </>
@@ -358,7 +419,7 @@ export const DashboardLayout = () => {
         {hasChildren && !sidebarCollapsed && (
           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
-              {item.children?.map(child => renderMenuItem(child, depth + 1))}
+              {item.children?.map((child) => renderMenuItem(child, depth + 1))}
             </List>
           </Collapse>
         )}
@@ -367,10 +428,10 @@ export const DashboardLayout = () => {
   };
 
   const renderModule = (module) => {
-    const visibleItems = module.items?.filter(item => 
-      !item.permission || hasPermission(item.permission)
+    const visibleItems = module.items?.filter(
+      (item) => !item.permission || hasPermission(item.permission)
     );
-    
+
     if (!visibleItems || visibleItems.length === 0) return null;
 
     return (
@@ -381,63 +442,64 @@ export const DashboardLayout = () => {
             sx={{
               px: 2,
               py: 1,
-              display: 'block',
+              display: "block",
               color: theme.palette.text.secondary,
               fontWeight: 600,
-              textTransform: 'uppercase',
+              textTransform: "uppercase",
               letterSpacing: 0.5,
-              fontSize: '0.75rem',
+              fontSize: "0.75rem",
             }}
           >
             {module.title}
           </Typography>
         )}
-        <List dense>
-          {visibleItems.map(item => renderMenuItem(item))}
-        </List>
+        <List dense>{visibleItems.map((item) => renderMenuItem(item))}</List>
       </Box>
     );
   };
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Logo */}
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           px: sidebarCollapsed ? 1 : 2,
           py: 2,
           borderBottom: `1px solid ${theme.palette.divider}`,
-          justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+          justifyContent: sidebarCollapsed ? "center" : "flex-start",
         }}
       >
         <Box
           sx={{
             width: 28,
             height: 28,
-            borderRadius: '50%',
+            borderRadius: "50%",
             background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             mr: sidebarCollapsed ? 0 : 1,
           }}
         >
-          <Typography variant="body2" sx={{ color: 'white', fontWeight: 700 }}>
+          <Typography variant="body2" sx={{ color: "white", fontWeight: 700 }}>
             🍇
           </Typography>
         </Box>
         {!sidebarCollapsed && (
-          <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700, color: theme.palette.primary.main }}
+          >
             BERRY
           </Typography>
         )}
       </Box>
 
       {/* Menu Items */}
-      <Box sx={{ flex: 1, overflow: 'auto', py: 1 }}>
-        {menuModules.map(module => renderModule(module))}
+      <Box sx={{ flex: 1, overflow: "auto", py: 1 }}>
+        {menuModules.map((module) => renderModule(module))}
       </Box>
 
       {/* Collapse Button */}
@@ -445,8 +507,8 @@ export const DashboardLayout = () => {
         <IconButton
           onClick={handleSidebarToggle}
           sx={{
-            width: '100%',
-            justifyContent: 'center',
+            width: "100%",
+            justifyContent: "center",
             color: theme.palette.text.secondary,
           }}
         >
@@ -457,7 +519,7 @@ export const DashboardLayout = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: "flex" }}>
       {/* Header */}
       <AppBar
         position="fixed"
@@ -466,48 +528,48 @@ export const DashboardLayout = () => {
           ml: { sm: `${currentDrawerWidth}px` },
           backgroundColor: theme.palette.background.paper,
           color: theme.palette.text.primary,
-          boxShadow: 'none',
+          boxShadow: "none",
           borderBottom: `1px solid ${theme.palette.divider}`,
-          transition: theme.transitions.create(['width', 'margin'], {
+          transition: theme.transitions.create(["width", "margin"], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
           }),
         }}
       >
-        <Toolbar sx={{ minHeight: '64px !important' }}>
+        <Toolbar sx={{ minHeight: "64px !important" }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+            sx={{ mr: 2, display: { sm: "none" } }}
           >
             <MenuIcon />
           </IconButton>
-          
+
           {/* Search */}
           <Box
             sx={{
-              position: 'relative',
+              position: "relative",
               borderRadius: 1,
               backgroundColor: alpha(theme.palette.common.black, 0.04),
-              '&:hover': {
+              "&:hover": {
                 backgroundColor: alpha(theme.palette.common.black, 0.06),
               },
               marginLeft: 0,
-              width: '100%',
+              width: "100%",
               maxWidth: 300,
             }}
           >
             <Box
               sx={{
                 padding: theme.spacing(0, 2),
-                height: '100%',
-                position: 'absolute',
-                pointerEvents: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                height: "100%",
+                position: "absolute",
+                pointerEvents: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               <SearchIcon fontSize="small" />
@@ -515,39 +577,33 @@ export const DashboardLayout = () => {
             <InputBase
               placeholder="Search"
               sx={{
-                color: 'inherit',
-                width: '100%',
-                '& .MuiInputBase-input': {
+                color: "inherit",
+                width: "100%",
+                "& .MuiInputBase-input": {
                   padding: theme.spacing(1, 1, 1, 0),
                   paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-                  fontSize: '0.875rem',
+                  fontSize: "0.875rem",
                 },
               }}
             />
           </Box>
-          
+
           <Box sx={{ flexGrow: 1 }} />
-          
+
           {/* Header Actions */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <Tooltip title="Toggle Dark Mode">
               <IconButton color="inherit" onClick={toggleDarkMode}>
                 {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
               </IconButton>
             </Tooltip>
-            
-            <Tooltip title="Language">
-              <IconButton color="inherit">
-                <LanguageIcon />
-              </IconButton>
-            </Tooltip>
-            
+
             <Tooltip title="Fullscreen">
-              <IconButton color="inherit">
-                <FullscreenIcon />
+              <IconButton color="inherit" onClick={handleToggleFullscreen}>
+                {isFullscreen ? <FullscreenExit /> : <FullscreenIcon />}
               </IconButton>
             </Tooltip>
-            
+
             <Tooltip title="Notifications">
               <IconButton color="inherit" onClick={handleNotificationClick}>
                 <Badge badgeContent={unreadCount} color="error">
@@ -555,7 +611,7 @@ export const DashboardLayout = () => {
                 </Badge>
               </IconButton>
             </Tooltip>
-            
+
             <Tooltip title="Profile">
               <IconButton
                 size="large"
@@ -571,15 +627,16 @@ export const DashboardLayout = () => {
                     width: 32,
                     height: 32,
                     bgcolor: theme.palette.primary.main,
-                    fontSize: '0.875rem',
+                    fontSize: "0.875rem",
                   }}
                 >
-                  {user?.avatar || 'U'}
+                  {user?.first_name?.charAt(0)}
+                  {user?.last_name?.charAt(0)}
                 </Avatar>
               </IconButton>
             </Tooltip>
-            
-            {/* Notifications Menu - Exacto como en la imagen */}
+
+            {/* Notifications Menu */}
             <Menu
               anchorEl={notificationAnchor}
               open={Boolean(notificationAnchor)}
@@ -592,141 +649,136 @@ export const DashboardLayout = () => {
                   border: `1px solid ${theme.palette.divider}`,
                 },
               }}
-              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              transformOrigin={{ horizontal: "right", vertical: "top" }}
+              anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
             >
               {/* Header de notificaciones */}
-              <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box
+                sx={{
+                  p: 2,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 1,
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
                     All Notification
-                    <Chip 
-                      label={unreadCount.toString().padStart(2, '0')} 
-                      color="warning" 
-                      size="small" 
-                      sx={{ fontSize: '0.75rem', height: 20 }}
+                    <Chip
+                      label={unreadCount.toString().padStart(2, "0")}
+                      color="warning"
+                      size="small"
+                      sx={{ fontSize: "0.75rem", height: 20 }}
                     />
                   </Typography>
                 </Box>
                 <Button
                   size="small"
                   onClick={markAllAsRead}
-                  sx={{ color: theme.palette.primary.main, textTransform: 'none', p: 0 }}
+                  sx={{
+                    color: theme.palette.primary.main,
+                    textTransform: "none",
+                    p: 0,
+                  }}
                 >
                   Mark as all read
                 </Button>
               </Box>
-              
-              {/* Dropdown de filtro */}
-              <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    p: 1,
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 1,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <Typography variant="body2">All Notification</Typography>
-                  <ExpandMore fontSize="small" />
-                </Box>
-              </Box>
-              
+
               {/* Lista de notificaciones */}
-              <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
-                {notifications.map((notification) => (
-                  <Box key={notification.id} sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      {notification.user ? (
-                        <Avatar sx={{ bgcolor: theme.palette.primary.main, width: 32, height: 32, fontSize: '0.75rem' }}>
-                          {notification.avatar}
-                        </Avatar>
-                      ) : (
-                        <Box
-                          sx={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 1,
-                            bgcolor: notification.type === 'success' ? 'success.light' : 'info.light',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {notification.type === 'success' ? '✓' : notification.type === 'info' ? '📧' : '📎'}
-                        </Box>
-                      )}
-                      <Box sx={{ flex: 1 }}>
-                        {notification.user && (
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                            {notification.user}
-                          </Typography>
-                        )}
-                        {notification.title && (
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                            {notification.title}
-                          </Typography>
-                        )}
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mt: 0.5 }}>
-                          {notification.message}
+              <Box sx={{ maxHeight: 300, overflow: "auto" }}>
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <Box
+                      key={notification.id}
+                      sx={{
+                        p: 2,
+                        borderBottom: `1px solid ${theme.palette.divider}`,
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 600, fontSize: "0.875rem" }}
+                      >
+                        {notification.title}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ fontSize: "0.75rem", mt: 0.5 }}
+                      >
+                        {notification.message}
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          mt: 1,
+                        }}
+                      >
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(notification.created_at).toLocaleString()}
                         </Typography>
-                        {notification.fileName && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
-                            <Box sx={{ width: 16, height: 16, mr: 1 }}>📎</Box>
-                            <Typography variant="caption">{notification.fileName}</Typography>
-                          </Box>
-                        )}
-                        {notification.hasButton && (
-                          <Button
+                        {!notification.read_at && (
+                          <Chip
+                            label="Unread"
+                            color="error"
                             size="small"
-                            variant="contained"
-                            sx={{ mt: 1, textTransform: 'none', fontSize: '0.75rem' }}
-                          >
-                            {notification.buttonText}
-                          </Button>
+                            sx={{ fontSize: "0.6rem", height: 18 }}
+                          />
                         )}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {notification.time}
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            {notification.unread && (
-                              <Chip label="Unread" color="error" size="small" sx={{ fontSize: '0.6rem', height: 18 }} />
-                            )}
-                            {!notification.unread && notification.type !== 'file' && (
-                              <Chip label="New" color="warning" size="small" sx={{ fontSize: '0.6rem', height: 18 }} />
-                            )}
-                          </Box>
-                        </Box>
                       </Box>
                     </Box>
+                  ))
+                ) : (
+                  <Box sx={{ p: 2, textAlign: "center" }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No notifications
+                    </Typography>
                   </Box>
-                ))}
+                )}
               </Box>
-              
+
               {/* Footer */}
-              <Box sx={{ p: 2, textAlign: 'center', borderTop: `1px solid ${theme.palette.divider}` }}>
-                <Button color="primary" sx={{ textTransform: 'none' }}>
+              <Box
+                sx={{
+                  p: 2,
+                  textAlign: "center",
+                  borderTop: `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                <Button color="primary" sx={{ textTransform: "none" }}>
                   View All
                 </Button>
               </Box>
             </Menu>
-            
+
             {/* User Menu */}
             <Menu
               id="menu-appbar"
               anchorEl={anchorEl}
               anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
+                vertical: "bottom",
+                horizontal: "right",
               }}
               keepMounted
               transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
+                vertical: "top",
+                horizontal: "right",
               }}
               open={Boolean(anchorEl)}
               onClose={handleClose}
@@ -737,83 +789,65 @@ export const DashboardLayout = () => {
                 },
               }}
             >
-              <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+              <Box
+                sx={{
+                  p: 2,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                }}
+              >
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Good Morning, {user?.firstName} {user?.lastName}
+                  Hola, {user?.first_name} {user?.last_name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {user?.role}
+                  {user?.roles?.[0]?.name || "User"}
                 </Typography>
               </Box>
-              
+
               <Box sx={{ p: 2 }}>
-                <Paper sx={{ p: 2, bgcolor: '#fff3cd', border: '1px solid #ffeaa7', mb: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                    Upgrade your plan
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-                    70% discount for 1 years subscriptions
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    sx={{
-                      bgcolor: '#f39c12',
-                      '&:hover': { bgcolor: '#e67e22' },
-                      textTransform: 'none',
-                    }}
-                  >
-                    Go Premium
-                  </Button>
-                </Paper>
-                
                 <FormControlLabel
-                  control={<Switch defaultChecked color="primary" />}
-                  label="Start DND Mode"
+                  control={
+                    <Switch
+                      checked={isDarkMode}
+                      onChange={toggleDarkMode}
+                      color="primary"
+                    />
+                  }
+                  label="Modo Oscuro"
                   sx={{ mb: 1 }}
                 />
                 <FormControlLabel
                   control={<Switch color="primary" />}
-                  label="Allow Notifications"
+                  label="Permitir Notificaciones"
                 />
               </Box>
-              
+
               <Divider />
-              
-              <MenuItem onClick={() => navigate('/dashboard/settings')}>
+
+              <MenuItem onClick={() => navigate("/dashboard/settings")}>
                 <ListItemIcon>
                   <SettingsIcon fontSize="small" />
                 </ListItemIcon>
-                Account settings
-              </MenuItem>
-              <MenuItem onClick={() => navigate('/dashboard/profile')}>
-                <ListItemIcon>
-                  <PersonIcon fontSize="small" />
-                </ListItemIcon>
-                <Box>
-                  <Typography variant="body2">Social Profile</Typography>
-                  <Chip label="02" color="warning" size="small" sx={{ ml: 1 }} />
-                </Box>
+                Configuración de Cuenta
               </MenuItem>
               <Divider />
               <MenuItem onClick={handleLogout}>
                 <ListItemIcon>
                   <LogoutIcon fontSize="small" />
                 </ListItemIcon>
-                Logout
+                Cerrar Sesión
               </MenuItem>
             </Menu>
           </Box>
         </Toolbar>
       </AppBar>
-      
+
       {/* Sidebar */}
       <Box
         component="nav"
-        sx={{ 
-          width: { sm: currentDrawerWidth }, 
+        sx={{
+          width: { sm: currentDrawerWidth },
           flexShrink: { sm: 0 },
-          transition: theme.transitions.create('width', {
+          transition: theme.transitions.create("width", {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
           }),
@@ -827,9 +861,9 @@ export const DashboardLayout = () => {
             keepMounted: true,
           }}
           sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { 
-              boxSizing: 'border-box', 
+            display: { xs: "block", sm: "none" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
               width: drawerWidth,
               borderRight: `1px solid ${theme.palette.divider}`,
             },
@@ -840,12 +874,12 @@ export const DashboardLayout = () => {
         <Drawer
           variant="permanent"
           sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { 
-              boxSizing: 'border-box', 
+            display: { xs: "none", sm: "block" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
               width: currentDrawerWidth,
               borderRight: `1px solid ${theme.palette.divider}`,
-              transition: theme.transitions.create('width', {
+              transition: theme.transitions.create("width", {
                 easing: theme.transitions.easing.sharp,
                 duration: theme.transitions.duration.leavingScreen,
               }),
@@ -856,7 +890,7 @@ export const DashboardLayout = () => {
           {drawer}
         </Drawer>
       </Box>
-      
+
       {/* Main Content */}
       <Box
         component="main"
@@ -864,10 +898,10 @@ export const DashboardLayout = () => {
           flexGrow: 1,
           p: 3,
           width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
-          mt: '64px',
+          mt: "64px",
           backgroundColor: theme.palette.background.default,
-          minHeight: 'calc(100vh - 64px)',
-          transition: theme.transitions.create(['width', 'margin'], {
+          minHeight: "calc(100vh - 64px)",
+          transition: theme.transitions.create(["width", "margin"], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
           }),

@@ -15,6 +15,7 @@ import { Analytics } from './pages/Analytics';
 import { Users } from './pages/Users';
 import { UserRoles } from './pages/UserRoles';
 import { UserPermissions } from './pages/UserPermissions';
+import { Modules } from './pages/Modules';
 import { Settings } from './pages/Settings';
 import { Statistics } from './pages/Statistics';
 import { DataPage } from './pages/DataPage';
@@ -169,6 +170,24 @@ function App() {
                 }
               />
               
+              {/* System Routes */}
+              <Route
+                path="modules"
+                element={
+                  <ProtectedRoute permission="system.settings">
+                    <Modules />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="settings"
+                element={
+                  <ProtectedRoute permission="system.settings">
+                    <Settings />
+                  </ProtectedRoute>
+                }
+              />
+              
               {/* Application Routes */}
               <Route
                 path="customers"
@@ -215,16 +234,6 @@ function App() {
                 element={
                   <ProtectedRoute permission="calendar.view">
                     <Calendar />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* System Routes */}
-              <Route
-                path="settings"
-                element={
-                  <ProtectedRoute permission="system.settings">
-                    <Settings />
                   </ProtectedRoute>
                 }
               />

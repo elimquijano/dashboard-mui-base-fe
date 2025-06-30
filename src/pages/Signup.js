@@ -339,30 +339,6 @@ export const Signup = () => {
           </form>
         </CardContent>
       </Card>
-
-      {/* Footer */}
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: 20,
-          left: 20,
-          color: 'text.secondary',
-          fontSize: '0.75rem',
-        }}
-      >
-        berrydashboard.com
-      </Box>
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: 20,
-          right: 20,
-          color: 'text.secondary',
-          fontSize: '0.75rem',
-        }}
-      >
-        © codedthemes.com
-      </Box>
     </Box>
   );
 };

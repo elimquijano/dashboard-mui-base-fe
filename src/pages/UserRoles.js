@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Card,
@@ -29,109 +29,104 @@ import {
   FormControlLabel,
   List,
   ListItem,
-  ListItemText,
-  ListItemIcon,
   Divider,
-} from '@mui/material';
+  CircularProgress,
+} from "@mui/material";
 import {
   Add as AddIcon,
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Security as SecurityIcon,
-} from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import { formatDate } from '../utils/formatters';
-import Swal from 'sweetalert2';
-
-const mockRoles = [
-  {
-    id: '1',
-    name: 'Super Admin',
-    description: 'Full system access with all permissions',
-    permissions: ['dashboard.view', 'dashboard.analytics', 'users.view', 'users.create', 'users.edit', 'users.delete', 'users.roles', 'users.permissions'],
-    userCount: 1,
-    status: 'active',
-    createdAt: '2024-01-01',
-  },
-  {
-    id: '2',
-    name: 'Manager',
-    description: 'Management level access with limited permissions',
-    permissions: ['dashboard.view', 'dashboard.analytics', 'users.view', 'users.edit'],
-    userCount: 3,
-    status: 'active',
-    createdAt: '2024-01-02',
-  },
-  {
-    id: '3',
-    name: 'Content Editor',
-    description: 'Content management and editing permissions',
-    permissions: ['dashboard.view', 'content.view', 'content.create', 'content.edit'],
-    userCount: 5,
-    status: 'active',
-    createdAt: '2024-01-03',
-  },
-  {
-    id: '4',
-    name: 'Basic User',
-    description: 'Basic access with minimal permissions',
-    permissions: ['dashboard.view'],
-    userCount: 12,
-    status: 'active',
-    createdAt: '2024-01-04',
-  },
-];
-
-const availablePermissions = [
-  { id: 'dashboard.view', name: 'View Dashboard', module: 'Dashboard' },
-  { id: 'dashboard.analytics', name: 'View Analytics', module: 'Dashboard' },
-  { id: 'users.view', name: 'View Users', module: 'Users' },
-  { id: 'users.create', name: 'Create Users', module: 'Users' },
-  { id: 'users.edit', name: 'Edit Users', module: 'Users' },
-  { id: 'users.delete', name: 'Delete Users', module: 'Users' },
-  { id: 'users.roles', name: 'Manage Roles', module: 'Users' },
-  { id: 'users.permissions', name: 'Manage Permissions', module: 'Users' },
-  { id: 'content.view', name: 'View Content', module: 'Content' },
-  { id: 'content.create', name: 'Create Content', module: 'Content' },
-  { id: 'content.edit', name: 'Edit Content', module: 'Content' },
-  { id: 'content.delete', name: 'Delete Content', module: 'Content' },
-];
+} from "@mui/icons-material";
+import { useAuth } from "../contexts/AuthContext";
+import { rolesAPI, permissionsAPI } from "../utils/api";
+import { formatDate } from "../utils/formatters";
+import Swal from "sweetalert2";
+import { confirmSwal, notificationSwal } from "../utils/swal-helpers";
 
 export const UserRoles = () => {
   const { hasPermission } = useAuth();
-  const [roles, setRoles] = useState(mockRoles);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [roles, setRoles] = useState([]);
+  const [permissions, setPermissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    permissions: [],
-    status: 'active',
+    name: "",
+    description: "",
+    permission_ids: [],
+    status: "active",
   });
 
-  const filteredRoles = roles.filter(role =>
-    role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    role.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    loadRoles();
+    loadPermissions();
+  }, []);
 
-  const handleOpenDialog = (role) => {
+  const loadRoles = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        search: searchTerm,
+      };
+      const response = await rolesAPI.getAll(params);
+      setRoles(response.data.data || []);
+    } catch (error) {
+      console.error("Error loading roles:", error);
+      notificationSwal("Error", "Error al cargar los roles.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPermissions = async () => {
+    try {
+      const response = await permissionsAPI.getAll();
+      setPermissions(response.data.data || []);
+    } catch (error) {
+      console.error("Error loading permissions:", error);
+    }
+  };
+
+  useEffect(() => {
+    const delayedSearch = setTimeout(() => {
+      loadRoles();
+    }, 300);
+
+    return () => clearTimeout(delayedSearch);
+  }, [searchTerm]);
+
+  const handleOpenDialog = async (role) => {
     if (role) {
       setEditingRole(role);
-      setFormData({
-        name: role.name,
-        description: role.description,
-        permissions: role.permissions,
-        status: role.status,
-      });
+      try {
+        // Cargar el rol completo con permisos
+        const response = await rolesAPI.getById(role.id);
+        const roleData = response.data;
+        setFormData({
+          name: roleData.name,
+          description: roleData.description || "",
+          permission_ids: roleData.permissions?.map((p) => p.id) || [],
+          status: roleData.status || "active",
+        });
+      } catch (error) {
+        console.error("Error loading role details:", error);
+        setFormData({
+          name: role.name,
+          description: role.description || "",
+          permission_ids: [],
+          status: role.status || "active",
+        });
+      }
     } else {
       setEditingRole(null);
       setFormData({
-        name: '',
-        description: '',
-        permissions: [],
-        status: 'active',
+        name: "",
+        description: "",
+        permission_ids: [],
+        status: "active",
       });
     }
     setOpenDialog(true);
@@ -142,112 +137,129 @@ export const UserRoles = () => {
     setEditingRole(null);
   };
 
-  const handleSaveRole = () => {
-    if (editingRole) {
-      // Update existing role
-      setRoles(prev => prev.map(role =>
-        role.id === editingRole.id
-          ? { ...role, ...formData }
-          : role
-      ));
-      
-      Swal.fire({
-        title: 'Role Updated!',
-        text: 'The role has been updated successfully.',
-        icon: 'success',
-        confirmButtonColor: '#673ab7',
-      });
-    } else {
-      // Add new role
-      const newRole = {
-        id: Date.now().toString(),
-        ...formData,
-        userCount: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-      setRoles(prev => [...prev, newRole]);
-      
-      Swal.fire({
-        title: 'Role Created!',
-        text: 'The new role has been created successfully.',
-        icon: 'success',
-        confirmButtonColor: '#673ab7',
-      });
+  const handleSaveRole = async () => {
+    try {
+      if (editingRole) {
+        await rolesAPI.update(editingRole.id, formData);
+        notificationSwal(
+          "Rol Actualizado",
+          "El rol ha sido actualizado exitosamente",
+          "success"
+        );
+      } else {
+        await rolesAPI.create(formData);
+        notificationSwal(
+          "Rol Creado",
+          "El rol ha sido creado exitosamente",
+          "success"
+        );
+      }
+      loadRoles();
+    } catch (error) {
+      console.error("Error saving role:", error);
+      notificationSwal("Error", "Hubo un error al guardar el rol", "error");
+    } finally {
+      handleCloseDialog();
     }
-    handleCloseDialog();
   };
 
-  const handleDeleteRole = (roleId) => {
-    const role = roles.find(r => r.id === roleId);
-    
-    if (role.userCount > 0) {
-      Swal.fire({
-        title: 'Cannot Delete Role',
-        text: `This role is assigned to ${role.userCount} user(s). Please reassign users before deleting.`,
-        icon: 'warning',
-        confirmButtonColor: '#673ab7',
-      });
+  const handleDeleteRole = async (roleId) => {
+    const role = roles.find((r) => r.id === roleId);
+
+    if (role.users_count > 0) {
+      notificationSwal(
+        "No se puede eliminar el rol",
+        `Este rol está asignado a ${role.users_count} usuario(s). Por favor, reasigne los usuarios antes de eliminar.`,
+        "warning"
+      );
       return;
     }
 
-    Swal.fire({
-      title: 'Are you sure?',
-      text: 'This action cannot be undone.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#673ab7',
-      confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setRoles(prev => prev.filter(role => role.id !== roleId));
-        Swal.fire({
-          title: 'Deleted!',
-          text: 'The role has been deleted.',
-          icon: 'success',
-          confirmButtonColor: '#673ab7',
-        });
+    const confirmUser = await confirmSwal(
+      "¿Estás seguro?",
+      "Esta acción no se puede deshacer.",
+      {
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar",
       }
-    });
+    );
+
+    if (confirmUser) {
+      try {
+        await rolesAPI.delete(roleId);
+        notificationSwal(
+          "Rol Eliminado",
+          "El rol ha sido eliminado exitosamente",
+          "success"
+        );
+        loadRoles();
+      } catch (error) {
+        console.error("Error deleting role:", error);
+        notificationSwal("Error", "Hubo un error al eliminar el rol", "error");
+      }
+    }
   };
 
   const handlePermissionChange = (permissionId) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      permissions: prev.permissions.includes(permissionId)
-        ? prev.permissions.filter(p => p !== permissionId)
-        : [...prev.permissions, permissionId]
+      permission_ids: prev.permission_ids.includes(permissionId)
+        ? prev.permission_ids.filter((p) => p !== permissionId)
+        : [...prev.permission_ids, permissionId],
     }));
   };
 
   const getStatusColor = (status) => {
-    return status === 'active' ? 'success' : 'default';
+    return status === "active" ? "success" : "default";
   };
 
-  const groupedPermissions = availablePermissions.reduce((acc, permission) => {
-    if (!acc[permission.module]) {
-      acc[permission.module] = [];
+  const groupedPermissions = permissions.reduce((acc, permission) => {
+    const module = permission.module || "Other";
+    if (!acc[module]) {
+      acc[module] = [];
     }
-    acc[permission.module].push(permission);
+    acc[module].push(permission);
     return acc;
   }, {});
 
+  if (loading && roles.length === 0) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: 400,
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          User Roles
+          Roles
         </Typography>
-        {hasPermission('users.roles') && (
+        {hasPermission("users.roles") && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
             sx={{
-              background: 'linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)',
+              background: "linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)",
             }}
           >
-            Add Role
+            Agregar Rol
           </Button>
         )}
       </Box>
@@ -257,7 +269,7 @@ export const UserRoles = () => {
           <Box sx={{ mb: 3 }}>
             <TextField
               fullWidth
-              placeholder="Search roles..."
+              placeholder="Buscar roles..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
@@ -275,22 +287,27 @@ export const UserRoles = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Role Name</TableCell>
-                  <TableCell>Description</TableCell>
-                  <TableCell>Permissions</TableCell>
-                  <TableCell>Users</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>Nombre del Rol</TableCell>
+                  <TableCell>Descripcion</TableCell>
+                  <TableCell>Permisos</TableCell>
+                  <TableCell>Usuarios</TableCell>
+                  <TableCell>Estado</TableCell>
+                  <TableCell>Creado</TableCell>
+                  <TableCell align="right">Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredRoles.map((role) => (
+                {roles.map((role) => (
                   <TableRow key={role.id}>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
                         <SecurityIcon color="primary" />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontWeight: 600 }}
+                        >
                           {role.name}
                         </Typography>
                       </Box>
@@ -302,12 +319,12 @@ export const UserRoles = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {role.permissions.length} permissions
+                        {role.permissions_count || 0} permisos
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={`${role.userCount} users`}
+                        label={`${role.users_count || 0} usuarios`}
                         size="small"
                         color="primary"
                         variant="outlined"
@@ -315,15 +332,15 @@ export const UserRoles = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={role.status}
+                        label={role.status || "active"}
                         size="small"
                         color={getStatusColor(role.status)}
-                        sx={{ textTransform: 'capitalize' }}
+                        sx={{ textTransform: "capitalize" }}
                       />
                     </TableCell>
-                    <TableCell>{formatDate(role.createdAt)}</TableCell>
+                    <TableCell>{formatDate(role.created_at)}</TableCell>
                     <TableCell align="right">
-                      {hasPermission('users.roles') && (
+                      {hasPermission("users.roles") && (
                         <>
                           <IconButton
                             size="small"
@@ -350,84 +367,107 @@ export const UserRoles = () => {
       </Card>
 
       {/* Add/Edit Role Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>
-          {editingRole ? 'Edit Role' : 'Add New Role'}
+          {editingRole ? "Editar Rol" : "Agregar Nuevo Rol"}
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Role Name"
+                label="Nombre del Rol"
                 value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
+                <InputLabel>Estado</InputLabel>
                 <Select
                   value={formData.status}
-                  label="Status"
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                  label="Estado"
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, status: e.target.value }))
+                  }
                 >
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="inactive">Inactive</MenuItem>
+                  <MenuItem value="active">Activo</MenuItem>
+                  <MenuItem value="inactive">Inactivo</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Description"
+                label="Descripcion"
                 multiline
                 rows={3}
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
               />
             </Grid>
             <Grid item xs={12}>
               <Typography variant="h6" sx={{ mb: 2 }}>
-                Permissions
+                Permisos
               </Typography>
-              {Object.entries(groupedPermissions).map(([module, permissions]) => (
-                <Box key={module} sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                    {module}
-                  </Typography>
-                  <List dense>
-                    {permissions.map((permission) => (
-                      <ListItem key={permission.id} sx={{ py: 0 }}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={formData.permissions.includes(permission.id)}
-                              onChange={() => handlePermissionChange(permission.id)}
-                            />
-                          }
-                          label={permission.name}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                  <Divider />
-                </Box>
-              ))}
+              {Object.entries(groupedPermissions).map(
+                ([module, modulePermissions]) => (
+                  <Box key={module} sx={{ mb: 2 }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ fontWeight: 600, mb: 1 }}
+                    >
+                      {module}
+                    </Typography>
+                    <List dense>
+                      {modulePermissions.map((permission) => (
+                        <ListItem key={permission.id} sx={{ py: 0 }}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={formData.permission_ids.includes(
+                                  permission.id
+                                )}
+                                onChange={() =>
+                                  handlePermissionChange(permission.id)
+                                }
+                              />
+                            }
+                            label={permission.display_name || permission.name}
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                    <Divider />
+                  </Box>
+                )
+              )}
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog}>Cancelar</Button>
           <Button
             onClick={handleSaveRole}
             variant="contained"
             disabled={!formData.name || !formData.description}
             sx={{
-              background: 'linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)',
+              background: "linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)",
             }}
           >
-            {editingRole ? 'Update' : 'Create'} Role
+            {editingRole ? "Actualizar" : "Crear"} Rol
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,9 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import Swal from "sweetalert2";
-import withReactContent from "sweetalert2-react-content";
 import { authAPI } from "../utils/api";
-
-const MySwal = withReactContent(Swal);
+import { confirmSwal, notificationSwal } from "../utils/swal-helpers";
 
 const AuthContext = createContext(undefined);
 
@@ -96,27 +93,20 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("auth_token", responseData.token);
       localStorage.setItem("user", JSON.stringify(userForState));
 
-      MySwal.fire({
-        title: "Welcome Back!",
-        text: `Hello ${userForState.first_name}, you have successfully logged in.`,
-        icon: "success",
-        timer: 2000,
-        showConfirmButton: false,
-        toast: true,
-        position: "top-end",
-      });
+      notificationSwal(
+        "Inicio de sesión exitoso",
+        `¡Bienvenido ${userForState.first_name}!`,
+        "success"
+      );
 
       return true;
     } catch (error) {
       console.error("API login failed, trying mock data:", error);
-
-      MySwal.fire({
-        title: "Login Failed",
-        text: "Invalid email or password. Please try again.",
-        icon: "error",
-        confirmButtonText: "OK",
-        confirmButtonColor: "#673ab7",
-      });
+      notificationSwal(
+        "Inicio de sesión fallido",
+        error?.message || "Error al iniciar sesión.",
+        "error"
+      );
 
       return false;
     } finally {
@@ -144,47 +134,48 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("auth_token", responseData.token);
       localStorage.setItem("user", JSON.stringify(userForState));
 
-      MySwal.fire({
-        title: "Account Created!",
-        text: `Welcome ${userData.first_name}! Your account has been created successfully.`,
-        icon: "success",
-        confirmButtonText: "Get Started",
-        confirmButtonColor: "#673ab7",
-      });
+      notificationSwal(
+        "Éxito",
+        `Bienvenido ${userData.first_name}! Tu cuenta ha sido creada.`,
+        "success"
+      );
 
       return true;
     } catch (error) {
       console.error("API signup failed, using mock data:", error);
-      MySwal.fire({
-        title: "Account Not Created!",
-        text: `Not possible to create account.`,
-        icon: "error",
-        confirmButtonText: "Try Again",
-        confirmButtonColor: "#673ab7",
-      });
+      notificationSwal(
+        "Error",
+        error?.message || "Error al crear la cuenta.",
+        "error"
+      );
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
   const logout = async () => {
-    const result = await MySwal.fire({
-      title: "Are you sure?",
-      text: "You will be logged out of your account.",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#673ab7",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, logout",
-      cancelButtonText: "Cancel",
-    });
+    const userConfirmed = await confirmSwal(
+      "¿Estás seguro?",
+      "Se cerrará tu sesión actual.",
+      {
+        // Opciones personalizadas
+        confirmButtonText: "Sí, cerrar sesión",
+        icon: "warning",
+      }
+    );
 
-    if (result.isConfirmed) {
+    if (userConfirmed) {
       try {
         // Intentar logout desde API
         await authAPI.logout();
       } catch (error) {
         console.error("API logout failed:", error);
+        notificationSwal(
+          "Error",
+          "No se pudo cerrar sesión desde el servidor.",
+          "error"
+        );
       }
 
       // Limpiar estado local
@@ -192,15 +183,11 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user");
 
-      MySwal.fire({
-        title: "Logged Out",
-        text: "You have been successfully logged out.",
-        icon: "success",
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: "top-end",
-      });
+      notificationSwal(
+        "Sesión cerrada",
+        "Has cerrado sesión exitosamente.",
+        "success"
+      );
     }
   };
 

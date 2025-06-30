@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -28,6 +28,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,33 +43,9 @@ import {
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { permissionsAPI } from '../utils/api';
 import { formatDate } from '../utils/formatters';
 import Swal from 'sweetalert2';
-
-const mockPermissions = [
-  // Dashboard Module
-  { id: '1', name: 'dashboard.view', displayName: 'View Dashboard', module: 'Dashboard', type: 'view', description: 'Access to main dashboard', createdAt: '2024-01-01' },
-  { id: '2', name: 'dashboard.analytics', displayName: 'View Analytics', module: 'Dashboard', type: 'view', description: 'Access to analytics dashboard', createdAt: '2024-01-01' },
-  
-  // Users Module
-  { id: '3', name: 'users.view', displayName: 'View Users', module: 'Users', type: 'view', description: 'View user list and details', createdAt: '2024-01-01' },
-  { id: '4', name: 'users.create', displayName: 'Create Users', module: 'Users', type: 'create', description: 'Create new users', createdAt: '2024-01-01' },
-  { id: '5', name: 'users.edit', displayName: 'Edit Users', module: 'Users', type: 'edit', description: 'Edit existing users', createdAt: '2024-01-01' },
-  { id: '6', name: 'users.delete', displayName: 'Delete Users', module: 'Users', type: 'delete', description: 'Delete users', createdAt: '2024-01-01' },
-  { id: '7', name: 'users.roles', displayName: 'Manage Roles', module: 'Users', type: 'manage', description: 'Manage user roles', createdAt: '2024-01-01' },
-  { id: '8', name: 'users.permissions', displayName: 'Manage Permissions', module: 'Users', type: 'manage', description: 'Manage user permissions', createdAt: '2024-01-01' },
-  
-  // Content Module
-  { id: '9', name: 'content.view', displayName: 'View Content', module: 'Content', type: 'view', description: 'View content items', createdAt: '2024-01-01' },
-  { id: '10', name: 'content.create', displayName: 'Create Content', module: 'Content', type: 'create', description: 'Create new content', createdAt: '2024-01-01' },
-  { id: '11', name: 'content.edit', displayName: 'Edit Content', module: 'Content', type: 'edit', description: 'Edit existing content', createdAt: '2024-01-01' },
-  { id: '12', name: 'content.delete', displayName: 'Delete Content', module: 'Content', type: 'delete', description: 'Delete content', createdAt: '2024-01-01' },
-  
-  // System Module
-  { id: '13', name: 'system.settings', displayName: 'System Settings', module: 'System', type: 'manage', description: 'Access system settings', createdAt: '2024-01-01' },
-  { id: '14', name: 'system.logs', displayName: 'System Logs', module: 'System', type: 'view', description: 'View system logs', createdAt: '2024-01-01' },
-  { id: '15', name: 'system.backup', displayName: 'System Backup', module: 'System', type: 'manage', description: 'Manage system backups', createdAt: '2024-01-01' },
-];
 
 const modules = [
   { name: 'Dashboard', icon: <DashboardIcon />, color: '#673ab7' },
@@ -87,7 +64,8 @@ const permissionTypes = [
 
 export const UserPermissions = () => {
   const { hasPermission } = useAuth();
-  const [permissions, setPermissions] = useState(mockPermissions);
+  const [permissions, setPermissions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModule, setSelectedModule] = useState('');
   const [selectedType, setSelectedType] = useState('');
@@ -95,16 +73,51 @@ export const UserPermissions = () => {
   const [editingPermission, setEditingPermission] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    displayName: '',
+    display_name: '',
     module: '',
     type: 'view',
     description: '',
   });
 
+  useEffect(() => {
+    loadPermissions();
+  }, []);
+
+  const loadPermissions = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        search: searchTerm,
+        module: selectedModule,
+        type: selectedType,
+      };
+      const response = await permissionsAPI.getAll(params);
+      setPermissions(response.data.data || []);
+    } catch (error) {
+      console.error('Error loading permissions:', error);
+      Swal.fire({
+        title: 'Error!',
+        text: 'Failed to load permissions.',
+        icon: 'error',
+        confirmButtonColor: '#673ab7',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const delayedSearch = setTimeout(() => {
+      loadPermissions();
+    }, 300);
+
+    return () => clearTimeout(delayedSearch);
+  }, [searchTerm, selectedModule, selectedType]);
+
   const filteredPermissions = permissions.filter(permission => {
-    const matchesSearch = permission.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         permission.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         permission.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = permission.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         permission.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         permission.description?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesModule = !selectedModule || permission.module === selectedModule;
     const matchesType = !selectedType || permission.type === selectedType;
     
@@ -112,10 +125,11 @@ export const UserPermissions = () => {
   });
 
   const groupedPermissions = filteredPermissions.reduce((acc, permission) => {
-    if (!acc[permission.module]) {
-      acc[permission.module] = [];
+    const module = permission.module || 'Other';
+    if (!acc[module]) {
+      acc[module] = [];
     }
-    acc[permission.module].push(permission);
+    acc[module].push(permission);
     return acc;
   }, {});
 
@@ -124,16 +138,16 @@ export const UserPermissions = () => {
       setEditingPermission(permission);
       setFormData({
         name: permission.name,
-        displayName: permission.displayName,
-        module: permission.module,
-        type: permission.type,
-        description: permission.description,
+        display_name: permission.display_name || '',
+        module: permission.module || '',
+        type: permission.type || 'view',
+        description: permission.description || '',
       });
     } else {
       setEditingPermission(null);
       setFormData({
         name: '',
-        displayName: '',
+        display_name: '',
         module: '',
         type: 'view',
         description: '',
@@ -147,42 +161,40 @@ export const UserPermissions = () => {
     setEditingPermission(null);
   };
 
-  const handleSavePermission = () => {
-    if (editingPermission) {
-      // Update existing permission
-      setPermissions(prev => prev.map(permission =>
-        permission.id === editingPermission.id
-          ? { ...permission, ...formData }
-          : permission
-      ));
-      
+  const handleSavePermission = async () => {
+    try {
+      if (editingPermission) {
+        await permissionsAPI.update(editingPermission.id, formData);
+        Swal.fire({
+          title: 'Permission Updated!',
+          text: 'The permission has been updated successfully.',
+          icon: 'success',
+          confirmButtonColor: '#673ab7',
+        });
+      } else {
+        await permissionsAPI.create(formData);
+        Swal.fire({
+          title: 'Permission Created!',
+          text: 'The new permission has been created successfully.',
+          icon: 'success',
+          confirmButtonColor: '#673ab7',
+        });
+      }
+      handleCloseDialog();
+      loadPermissions();
+    } catch (error) {
+      console.error('Error saving permission:', error);
       Swal.fire({
-        title: 'Permission Updated!',
-        text: 'The permission has been updated successfully.',
-        icon: 'success',
-        confirmButtonColor: '#673ab7',
-      });
-    } else {
-      // Add new permission
-      const newPermission = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-      setPermissions(prev => [...prev, newPermission]);
-      
-      Swal.fire({
-        title: 'Permission Created!',
-        text: 'The new permission has been created successfully.',
-        icon: 'success',
+        title: 'Error!',
+        text: 'There was an error saving the permission.',
+        icon: 'error',
         confirmButtonColor: '#673ab7',
       });
     }
-    handleCloseDialog();
   };
 
-  const handleDeletePermission = (permissionId) => {
-    Swal.fire({
+  const handleDeletePermission = async (permissionId) => {
+    const result = await Swal.fire({
       title: 'Are you sure?',
       text: 'This action cannot be undone.',
       icon: 'warning',
@@ -190,17 +202,28 @@ export const UserPermissions = () => {
       confirmButtonColor: '#d33',
       cancelButtonColor: '#673ab7',
       confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setPermissions(prev => prev.filter(permission => permission.id !== permissionId));
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await permissionsAPI.delete(permissionId);
         Swal.fire({
           title: 'Deleted!',
           text: 'The permission has been deleted.',
           icon: 'success',
           confirmButtonColor: '#673ab7',
         });
+        loadPermissions();
+      } catch (error) {
+        console.error('Error deleting permission:', error);
+        Swal.fire({
+          title: 'Error!',
+          text: 'There was an error deleting the permission.',
+          icon: 'error',
+          confirmButtonColor: '#673ab7',
+        });
       }
-    });
+    }
   };
 
   const getTypeColor = (type) => {
@@ -212,6 +235,14 @@ export const UserPermissions = () => {
     const module = modules.find(m => m.name === moduleName);
     return module ? module.icon : <SecurityIcon />;
   };
+
+  if (loading && permissions.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -306,7 +337,7 @@ export const UserPermissions = () => {
                 <TableHead>
                   <TableRow>
                     <TableCell>Permission</TableCell>
-                    <TableCell>Name</TableCell>
+                    <TableCell>Display Name</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Description</TableCell>
                     <TableCell>Created</TableCell>
@@ -323,12 +354,12 @@ export const UserPermissions = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                          {permission.displayName}
+                          {permission.display_name || permission.name}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={permission.type}
+                          label={permission.type || 'view'}
                           size="small"
                           color={getTypeColor(permission.type)}
                           sx={{ textTransform: 'capitalize' }}
@@ -339,7 +370,7 @@ export const UserPermissions = () => {
                           {permission.description}
                         </Typography>
                       </TableCell>
-                      <TableCell>{formatDate(permission.createdAt)}</TableCell>
+                      <TableCell>{formatDate(permission.created_at)}</TableCell>
                       <TableCell align="right">
                         {hasPermission('users.permissions') && (
                           <>
@@ -389,8 +420,8 @@ export const UserPermissions = () => {
               <TextField
                 fullWidth
                 label="Display Name"
-                value={formData.displayName}
-                onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
+                value={formData.display_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, display_name: e.target.value }))}
                 placeholder="e.g., View Users"
               />
             </Grid>
@@ -444,7 +475,7 @@ export const UserPermissions = () => {
           <Button
             onClick={handleSavePermission}
             variant="contained"
-            disabled={!formData.name || !formData.displayName || !formData.module}
+            disabled={!formData.name || !formData.display_name || !formData.module}
             sx={{
               background: 'linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)',
             }}
