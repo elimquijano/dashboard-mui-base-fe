@@ -385,6 +385,14 @@ export const Modules = () => {
     );
   }
 
+  if (loading && modules.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <Box
