@@ -28,6 +28,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import { TreeView, TreeItem } from '@mui/x-tree-view';
 import {
@@ -41,11 +43,16 @@ import {
   Article as ArticleIcon,
   Dashboard as DashboardIcon,
   Settings as SettingsIcon,
+  Apps as AppsIcon,
+  Widgets as WidgetsIcon,
+  Security as SecurityIcon,
+  Group as GroupIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { modulesAPI } from '../utils/api';
+import { modulesAPI, permissionsAPI } from '../utils/api';
 import { formatDate } from '../utils/formatters';
-import Swal from 'sweetalert2';
+import { confirmSwal, notificationSwal } from '../utils/swal-helpers';
 
 const moduleTypes = [
   { value: 'module', label: 'Module', icon: <FolderIcon /> },
@@ -59,9 +66,21 @@ const statusOptions = [
   { value: 'inactive', label: 'Inactive', color: 'default' },
 ];
 
+const iconOptions = [
+  { value: 'DashboardIcon', label: 'Dashboard', icon: <DashboardIcon /> },
+  { value: 'SettingsIcon', label: 'Settings', icon: <SettingsIcon /> },
+  { value: 'AppsIcon', label: 'Apps', icon: <AppsIcon /> },
+  { value: 'WidgetsIcon', label: 'Widgets', icon: <WidgetsIcon /> },
+  { value: 'SecurityIcon', label: 'Security', icon: <SecurityIcon /> },
+  { value: 'GroupIcon', label: 'Group', icon: <GroupIcon /> },
+  { value: 'ArticleIcon', label: 'Article', icon: <ArticleIcon /> },
+  { value: 'FolderIcon', label: 'Folder', icon: <FolderIcon /> },
+];
+
 export const Modules = () => {
   const { hasPermission } = useAuth();
   const [modules, setModules] = useState([]);
+  const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -79,10 +98,12 @@ export const Modules = () => {
     type: 'module',
     status: 'active',
   });
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadModules();
     loadModuleTree();
+    loadPermissions();
   }, []);
 
   const loadModules = async () => {
@@ -97,12 +118,7 @@ export const Modules = () => {
       setModules(response.data.data || []);
     } catch (error) {
       console.error('Error loading modules:', error);
-      Swal.fire({
-        title: 'Error!',
-        text: 'Failed to load modules.',
-        icon: 'error',
-        confirmButtonColor: '#673ab7',
-      });
+      setError('Error al cargar los módulos');
     } finally {
       setLoading(false);
     }
@@ -114,6 +130,15 @@ export const Modules = () => {
       setTreeData(response.data || []);
     } catch (error) {
       console.error('Error loading module tree:', error);
+    }
+  };
+
+  const loadPermissions = async () => {
+    try {
+      const response = await permissionsAPI.getAll();
+      setPermissions(response.data.data || []);
+    } catch (error) {
+      console.error('Error loading permissions:', error);
     }
   };
 
@@ -157,71 +182,106 @@ export const Modules = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingModule(null);
+    setError('');
   };
 
   const handleSaveModule = async () => {
     try {
+      setError('');
+      
       if (editingModule) {
         await modulesAPI.update(editingModule.id, formData);
-        Swal.fire({
-          title: 'Module Updated!',
-          text: 'The module has been updated successfully.',
-          icon: 'success',
-          confirmButtonColor: '#673ab7',
-        });
+        notificationSwal(
+          'Módulo Actualizado',
+          'El módulo ha sido actualizado exitosamente.',
+          'success'
+        );
       } else {
         await modulesAPI.create(formData);
-        Swal.fire({
-          title: 'Module Created!',
-          text: 'The new module has been created successfully.',
-          icon: 'success',
-          confirmButtonColor: '#673ab7',
-        });
+        notificationSwal(
+          'Módulo Creado',
+          'El nuevo módulo ha sido creado exitosamente.',
+          'success'
+        );
       }
+      
       handleCloseDialog();
       loadModules();
       loadModuleTree();
+      
+      // Crear permisos automáticamente para el nuevo módulo
+      if (!editingModule) {
+        await createModulePermissions(formData);
+      }
+      
     } catch (error) {
       console.error('Error saving module:', error);
-      Swal.fire({
-        title: 'Error!',
-        text: 'There was an error saving the module.',
-        icon: 'error',
-        confirmButtonColor: '#673ab7',
-      });
+      setError(error.response?.data?.message || 'Error al guardar el módulo');
+    }
+  };
+
+  const createModulePermissions = async (moduleData) => {
+    try {
+      const basePermissions = [
+        { name: `${moduleData.slug}.view`, display_name: `Ver ${moduleData.name}`, type: 'view' },
+      ];
+
+      // Agregar más permisos según el tipo de módulo
+      if (moduleData.type === 'page') {
+        basePermissions.push(
+          { name: `${moduleData.slug}.create`, display_name: `Crear ${moduleData.name}`, type: 'create' },
+          { name: `${moduleData.slug}.edit`, display_name: `Editar ${moduleData.name}`, type: 'edit' },
+          { name: `${moduleData.slug}.delete`, display_name: `Eliminar ${moduleData.name}`, type: 'delete' }
+        );
+      }
+
+      for (const permission of basePermissions) {
+        try {
+          await permissionsAPI.create({
+            ...permission,
+            module: moduleData.name,
+            description: permission.display_name,
+          });
+        } catch (permError) {
+          console.warn('Permission already exists or error creating:', permError);
+        }
+      }
+      
+      loadPermissions();
+    } catch (error) {
+      console.error('Error creating module permissions:', error);
     }
   };
 
   const handleDeleteModule = async (moduleId) => {
-    const result = await Swal.fire({
-      title: 'Are you sure?',
-      text: 'This action cannot be undone. All child modules will also be deleted.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#673ab7',
-      confirmButtonText: 'Yes, delete it!'
-    });
+    const module = modules.find(m => m.id === moduleId);
+    
+    const userConfirmed = await confirmSwal(
+      '¿Estás seguro?',
+      `Esta acción eliminará el módulo "${module?.name}" y todos sus submódulos. Esta acción no se puede deshacer.`,
+      {
+        confirmButtonText: 'Sí, eliminar',
+        icon: 'warning',
+      }
+    );
 
-    if (result.isConfirmed) {
+    if (userConfirmed) {
       try {
         await modulesAPI.delete(moduleId);
-        Swal.fire({
-          title: 'Deleted!',
-          text: 'The module has been deleted.',
-          icon: 'success',
-          confirmButtonColor: '#673ab7',
-        });
+        notificationSwal(
+          'Módulo Eliminado',
+          'El módulo ha sido eliminado exitosamente.',
+          'success'
+        );
         loadModules();
         loadModuleTree();
       } catch (error) {
         console.error('Error deleting module:', error);
-        Swal.fire({
-          title: 'Error!',
-          text: 'There was an error deleting the module.',
-          icon: 'error',
-          confirmButtonColor: '#673ab7',
-        });
+        notificationSwal(
+          'Error',
+          error.response?.data?.message || 'Error al eliminar el módulo.',
+          'error'
+        );
       }
     }
   };
@@ -247,7 +307,7 @@ export const Modules = () => {
     setFormData(prev => ({
       ...prev,
       name: value,
-      slug: generateSlug(value),
+      slug: prev.slug || generateSlug(value),
     }));
   };
 
@@ -282,25 +342,44 @@ export const Modules = () => {
 
   const parentModules = modules.filter(module => !module.parent_id);
 
+  if (loading && modules.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          System Modules
+          Módulos del Sistema
         </Typography>
-        {hasPermission('system.settings') && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-            sx={{
-              background: 'linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)',
-            }}
-          >
-            Add Module
-          </Button>
-        )}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <IconButton onClick={() => { loadModules(); loadModuleTree(); }}>
+            <RefreshIcon />
+          </IconButton>
+          {hasPermission('system.modules') && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenDialog()}
+              sx={{
+                background: 'linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)',
+              }}
+            >
+              Agregar Módulo
+            </Button>
+          )}
+        </Box>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {/* Module Tree */}
@@ -308,7 +387,7 @@ export const Modules = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Module Hierarchy
+                Jerarquía de Módulos
               </Typography>
               {treeData.length > 0 ? (
                 <TreeView
@@ -320,7 +399,7 @@ export const Modules = () => {
                 </TreeView>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  No modules found
+                  No se encontraron módulos
                 </Typography>
               )}
             </CardContent>
@@ -335,7 +414,7 @@ export const Modules = () => {
                 <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
-                    placeholder="Search modules..."
+                    placeholder="Buscar módulos..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     InputProps={{
@@ -349,13 +428,13 @@ export const Modules = () => {
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <FormControl fullWidth>
-                    <InputLabel>Type</InputLabel>
+                    <InputLabel>Tipo</InputLabel>
                     <Select
                       value={typeFilter}
-                      label="Type"
+                      label="Tipo"
                       onChange={(e) => setTypeFilter(e.target.value)}
                     >
-                      <MenuItem value="">All Types</MenuItem>
+                      <MenuItem value="">Todos los Tipos</MenuItem>
                       {moduleTypes.map((type) => (
                         <MenuItem key={type.value} value={type.value}>
                           {type.label}
@@ -366,13 +445,13 @@ export const Modules = () => {
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <FormControl fullWidth>
-                    <InputLabel>Status</InputLabel>
+                    <InputLabel>Estado</InputLabel>
                     <Select
                       value={statusFilter}
-                      label="Status"
+                      label="Estado"
                       onChange={(e) => setStatusFilter(e.target.value)}
                     >
-                      <MenuItem value="">All Status</MenuItem>
+                      <MenuItem value="">Todos los Estados</MenuItem>
                       {statusOptions.map((status) => (
                         <MenuItem key={status.value} value={status.value}>
                           {status.label}
@@ -387,13 +466,13 @@ export const Modules = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Module</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Parent</TableCell>
-                      <TableCell>Order</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Created</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell>Módulo</TableCell>
+                      <TableCell>Tipo</TableCell>
+                      <TableCell>Padre</TableCell>
+                      <TableCell>Orden</TableCell>
+                      <TableCell>Estado</TableCell>
+                      <TableCell>Creado</TableCell>
+                      <TableCell align="right">Acciones</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -427,7 +506,7 @@ export const Modules = () => {
                             </Typography>
                           ) : (
                             <Typography variant="body2" color="text.secondary">
-                              Root
+                              Raíz
                             </Typography>
                           )}
                         </TableCell>
@@ -442,7 +521,7 @@ export const Modules = () => {
                         </TableCell>
                         <TableCell>{formatDate(module.created_at)}</TableCell>
                         <TableCell align="right">
-                          {hasPermission('system.settings') && (
+                          {hasPermission('system.modules') && (
                             <>
                               <IconButton
                                 size="small"
@@ -473,16 +552,22 @@ export const Modules = () => {
       {/* Add/Edit Module Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>
-          {editingModule ? 'Edit Module' : 'Add New Module'}
+          {editingModule ? 'Editar Módulo' : 'Agregar Nuevo Módulo'}
         </DialogTitle>
         <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Module Name"
+                label="Nombre del Módulo"
                 value={formData.name}
                 onChange={(e) => handleNameChange(e.target.value)}
+                required
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -491,13 +576,14 @@ export const Modules = () => {
                 label="Slug"
                 value={formData.slug}
                 onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                helperText="URL-friendly identifier"
+                helperText="Identificador amigable para URL"
+                required
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Description"
+                label="Descripción"
                 multiline
                 rows={3}
                 value={formData.description}
@@ -505,18 +591,29 @@ export const Modules = () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Icon"
-                value={formData.icon}
-                onChange={(e) => setFormData(prev => ({ ...prev, icon: e.target.value }))}
-                helperText="Material-UI icon name"
-              />
+              <FormControl fullWidth>
+                <InputLabel>Icono</InputLabel>
+                <Select
+                  value={formData.icon}
+                  label="Icono"
+                  onChange={(e) => setFormData(prev => ({ ...prev, icon: e.target.value }))}
+                >
+                  <MenuItem value="">Sin icono</MenuItem>
+                  {iconOptions.map((icon) => (
+                    <MenuItem key={icon.value} value={icon.value}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {icon.icon}
+                        {icon.label}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Sort Order"
+                label="Orden"
                 type="number"
                 value={formData.sort_order}
                 onChange={(e) => setFormData(prev => ({ ...prev, sort_order: parseInt(e.target.value) || 0 }))}
@@ -524,13 +621,13 @@ export const Modules = () => {
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Parent Module</InputLabel>
+                <InputLabel>Módulo Padre</InputLabel>
                 <Select
                   value={formData.parent_id || ''}
-                  label="Parent Module"
+                  label="Módulo Padre"
                   onChange={(e) => setFormData(prev => ({ ...prev, parent_id: e.target.value || null }))}
                 >
-                  <MenuItem value="">None (Root Level)</MenuItem>
+                  <MenuItem value="">Ninguno (Nivel Raíz)</MenuItem>
                   {parentModules.map((module) => (
                     <MenuItem key={module.id} value={module.id}>
                       {module.name}
@@ -541,11 +638,12 @@ export const Modules = () => {
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Type</InputLabel>
+                <InputLabel>Tipo</InputLabel>
                 <Select
                   value={formData.type}
-                  label="Type"
+                  label="Tipo"
                   onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                  required
                 >
                   {moduleTypes.map((type) => (
                     <MenuItem key={type.value} value={type.value}>
@@ -560,11 +658,12 @@ export const Modules = () => {
             </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
+                <InputLabel>Estado</InputLabel>
                 <Select
                   value={formData.status}
-                  label="Status"
+                  label="Estado"
                   onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                  required
                 >
                   {statusOptions.map((status) => (
                     <MenuItem key={status.value} value={status.value}>
@@ -577,7 +676,7 @@ export const Modules = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog}>Cancelar</Button>
           <Button
             onClick={handleSaveModule}
             variant="contained"
@@ -586,7 +685,7 @@ export const Modules = () => {
               background: 'linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)',
             }}
           >
-            {editingModule ? 'Update' : 'Create'} Module
+            {editingModule ? 'Actualizar' : 'Crear'} Módulo
           </Button>
         </DialogActions>
       </Dialog>
