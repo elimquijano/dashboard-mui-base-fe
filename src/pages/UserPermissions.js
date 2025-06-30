@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Card,
@@ -29,7 +29,8 @@ import {
   AccordionSummary,
   AccordionDetails,
   CircularProgress,
-} from '@mui/material';
+  Alert,
+} from "@mui/material";
 import {
   Add as AddIcon,
   Search as SearchIcon,
@@ -41,68 +42,79 @@ import {
   People as PeopleIcon,
   Article as ArticleIcon,
   Settings as SettingsIcon,
-} from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import { permissionsAPI } from '../utils/api';
-import { formatDate } from '../utils/formatters';
-import Swal from 'sweetalert2';
-
-const modules = [
-  { name: 'Dashboard', icon: <DashboardIcon />, color: '#673ab7' },
-  { name: 'Users', icon: <PeopleIcon />, color: '#2196f3' },
-  { name: 'Content', icon: <ArticleIcon />, color: '#4caf50' },
-  { name: 'System', icon: <SettingsIcon />, color: '#ff9800' },
-];
+  Apps as AppsIcon,
+  Widgets as WidgetsIcon,
+  Group as GroupIcon,
+  Refresh as RefreshIcon,
+} from "@mui/icons-material";
+import { useAuth } from "../contexts/AuthContext";
+import { permissionsAPI, modulesAPI } from "../utils/api";
+import { formatDate } from "../utils/formatters";
+import { confirmSwal, notificationSwal } from "../utils/swal-helpers";
 
 const permissionTypes = [
-  { value: 'view', label: 'View', color: 'info' },
-  { value: 'create', label: 'Create', color: 'success' },
-  { value: 'edit', label: 'Edit', color: 'warning' },
-  { value: 'delete', label: 'Delete', color: 'error' },
-  { value: 'manage', label: 'Manage', color: 'primary' },
+  { value: "view", label: "View", color: "info" },
+  { value: "create", label: "Create", color: "success" },
+  { value: "edit", label: "Edit", color: "warning" },
+  { value: "delete", label: "Delete", color: "error" },
+  { value: "manage", label: "Manage", color: "primary" },
 ];
+
+const moduleIcons = {
+  Dashboard: <DashboardIcon />,
+  Widget: <WidgetsIcon />,
+  Users: <PeopleIcon />,
+  Customer: <GroupIcon />,
+  Application: <AppsIcon />,
+  System: <SettingsIcon />,
+  Other: <SecurityIcon />,
+};
 
 export const UserPermissions = () => {
   const { hasPermission } = useAuth();
   const [permissions, setPermissions] = useState([]);
+  const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedModule, setSelectedModule] = useState('');
-  const [selectedType, setSelectedType] = useState('');
+  const [searchFilters, setSearchFilters] = useState({});
   const [openDialog, setOpenDialog] = useState(false);
   const [editingPermission, setEditingPermission] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    display_name: '',
-    module: '',
-    type: 'view',
-    description: '',
+    name: "",
+    display_name: "",
+    module: "",
+    module_id: null,
+    type: "view",
+    description: "",
   });
+  const [error, setError] = useState("");
 
   useEffect(() => {
     loadPermissions();
+    loadModules();
   }, []);
 
   const loadPermissions = async () => {
     try {
       setLoading(true);
       const params = {
-        search: searchTerm,
-        module: selectedModule,
-        type: selectedType,
+        ...searchFilters,
       };
       const response = await permissionsAPI.getAll(params);
       setPermissions(response.data.data || []);
     } catch (error) {
-      console.error('Error loading permissions:', error);
-      Swal.fire({
-        title: 'Error!',
-        text: 'Failed to load permissions.',
-        icon: 'error',
-        confirmButtonColor: '#673ab7',
-      });
+      console.error("Error loading permissions:", error);
+      setError("Error al cargar los permisos");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadModules = async () => {
+    try {
+      const response = await modulesAPI.getAll();
+      setModules(response.data.data || []);
+    } catch (error) {
+      console.error("Error loading modules:", error);
     }
   };
 
@@ -112,20 +124,29 @@ export const UserPermissions = () => {
     }, 300);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchTerm, selectedModule, selectedType]);
+  }, [searchFilters]);
 
-  const filteredPermissions = permissions.filter(permission => {
-    const matchesSearch = permission.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         permission.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         permission.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesModule = !selectedModule || permission.module === selectedModule;
-    const matchesType = !selectedType || permission.type === selectedType;
-    
+  const filteredPermissions = permissions.filter((permission) => {
+    const matchesSearch =
+      permission.display_name
+        ?.toLowerCase()
+        .includes((searchFilters.search || "").toLowerCase()) ||
+      permission.name
+        ?.toLowerCase()
+        .includes((searchFilters.search || "").toLowerCase()) ||
+      permission.description
+        ?.toLowerCase()
+        .includes((searchFilters.search || "").toLowerCase());
+    const matchesModule =
+      !searchFilters?.module || permission.module === searchFilters?.module;
+    const matchesType =
+      !searchFilters?.type || permission.type === searchFilters?.type;
+
     return matchesSearch && matchesModule && matchesType;
   });
 
   const groupedPermissions = filteredPermissions.reduce((acc, permission) => {
-    const module = permission.module || 'Other';
+    const module = permission.module || "Other";
     if (!acc[module]) {
       acc[module] = [];
     }
@@ -133,24 +154,40 @@ export const UserPermissions = () => {
     return acc;
   }, {});
 
+  const handleChangeFilter = (event) => {
+    const { name, value } = event.target;
+
+    setSearchFilters((prevFilters) => {
+      if (value === "") {
+        const { [name]: _, ...newFilters } = prevFilters;
+        return newFilters;
+      }
+
+      // Si no es vacío, devuelve el estado actualizado
+      return { ...prevFilters, [name]: value };
+    });
+  };
+
   const handleOpenDialog = (permission) => {
     if (permission) {
       setEditingPermission(permission);
       setFormData({
         name: permission.name,
-        display_name: permission.display_name || '',
-        module: permission.module || '',
-        type: permission.type || 'view',
-        description: permission.description || '',
+        display_name: permission.display_name || "",
+        module: permission.module || "",
+        module_id: permission.module_id || null,
+        type: permission.type || "view",
+        description: permission.description || "",
       });
     } else {
       setEditingPermission(null);
       setFormData({
-        name: '',
-        display_name: '',
-        module: '',
-        type: 'view',
-        description: '',
+        name: "",
+        display_name: "",
+        module: "",
+        module_id: null,
+        type: "view",
+        description: "",
       });
     }
     setOpenDialog(true);
@@ -159,86 +196,143 @@ export const UserPermissions = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingPermission(null);
+    setError("");
   };
 
   const handleSavePermission = async () => {
     try {
+      setError("");
+
+      // Buscar el módulo por nombre si no se ha seleccionado module_id
+      if (formData.module && !formData.module_id) {
+        const module = modules.find((m) => m.name === formData.module);
+        if (module) {
+          formData.module_id = module.id;
+        }
+      }
+
       if (editingPermission) {
         await permissionsAPI.update(editingPermission.id, formData);
-        Swal.fire({
-          title: 'Permission Updated!',
-          text: 'The permission has been updated successfully.',
-          icon: 'success',
-          confirmButtonColor: '#673ab7',
-        });
+        notificationSwal(
+          "Permiso Actualizado",
+          "El permiso ha sido actualizado exitosamente.",
+          "success"
+        );
       } else {
         await permissionsAPI.create(formData);
-        Swal.fire({
-          title: 'Permission Created!',
-          text: 'The new permission has been created successfully.',
-          icon: 'success',
-          confirmButtonColor: '#673ab7',
-        });
+        notificationSwal(
+          "Permiso Creado",
+          "El nuevo permiso ha sido creado exitosamente.",
+          "success"
+        );
       }
+
       handleCloseDialog();
       loadPermissions();
     } catch (error) {
-      console.error('Error saving permission:', error);
-      Swal.fire({
-        title: 'Error!',
-        text: 'There was an error saving the permission.',
-        icon: 'error',
-        confirmButtonColor: '#673ab7',
-      });
+      console.error("Error saving permission:", error);
+      setError(error.response?.data?.message || "Error al guardar el permiso");
     }
   };
 
   const handleDeletePermission = async (permissionId) => {
-    const result = await Swal.fire({
-      title: 'Are you sure?',
-      text: 'This action cannot be undone.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#673ab7',
-      confirmButtonText: 'Yes, delete it!'
-    });
+    const permission = permissions.find((p) => p.id === permissionId);
 
-    if (result.isConfirmed) {
+    const userConfirmed = await confirmSwal(
+      "¿Estás seguro?",
+      `Esta acción eliminará el permiso "${
+        permission?.display_name || permission?.name
+      }". Esta acción no se puede deshacer.`,
+      {
+        confirmButtonText: "Sí, eliminar",
+        icon: "warning",
+      }
+    );
+
+    if (userConfirmed) {
       try {
         await permissionsAPI.delete(permissionId);
-        Swal.fire({
-          title: 'Deleted!',
-          text: 'The permission has been deleted.',
-          icon: 'success',
-          confirmButtonColor: '#673ab7',
-        });
+        notificationSwal(
+          "Permiso Eliminado",
+          "El permiso ha sido eliminado exitosamente.",
+          "success"
+        );
         loadPermissions();
       } catch (error) {
-        console.error('Error deleting permission:', error);
-        Swal.fire({
-          title: 'Error!',
-          text: 'There was an error deleting the permission.',
-          icon: 'error',
-          confirmButtonColor: '#673ab7',
-        });
+        console.error("Error deleting permission:", error);
+        notificationSwal(
+          "Error",
+          error.response?.data?.message || "Error al eliminar el permiso.",
+          "error"
+        );
       }
     }
   };
 
   const getTypeColor = (type) => {
-    const typeConfig = permissionTypes.find(t => t.value === type);
-    return typeConfig ? typeConfig.color : 'default';
+    const typeConfig = permissionTypes.find((t) => t.value === type);
+    return typeConfig ? typeConfig.color : "default";
   };
 
   const getModuleIcon = (moduleName) => {
-    const module = modules.find(m => m.name === moduleName);
-    return module ? module.icon : <SecurityIcon />;
+    return moduleIcons[moduleName] || <SecurityIcon />;
   };
+
+  const generatePermissionName = (module, type, displayName) => {
+    if (!module || !type) return "";
+
+    const moduleSlug = module.toLowerCase().replace(/\s+/g, "");
+    const action = type === "manage" ? "manage" : type;
+
+    return `${moduleSlug}.${action}`;
+  };
+
+  const handleModuleChange = (module) => {
+    setFormData((prev) => {
+      const selectedModule = modules.find((m) => m.name === module);
+      const newName = generatePermissionName(
+        module,
+        prev.type,
+        prev.display_name
+      );
+
+      return {
+        ...prev,
+        module,
+        module_id: selectedModule?.id || null,
+        name: newName || prev.name,
+      };
+    });
+  };
+
+  const handleTypeChange = (type) => {
+    setFormData((prev) => {
+      const newName = generatePermissionName(
+        prev.module,
+        type,
+        prev.display_name
+      );
+
+      return {
+        ...prev,
+        type,
+        name: newName || prev.name,
+      };
+    });
+  };
+
+  const uniqueModules = [...new Set(modules.map((m) => m.name))];
 
   if (loading && permissions.length === 0) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: 400,
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -246,23 +340,46 @@ export const UserPermissions = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          User Permissions
+          Permisos de Usuario
         </Typography>
-        {hasPermission('users.permissions') && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-            sx={{
-              background: 'linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)',
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <IconButton
+            onClick={() => {
+              loadPermissions();
+              loadModules();
             }}
           >
-            Add Permission
-          </Button>
-        )}
+            <RefreshIcon />
+          </IconButton>
+          {hasPermission("users.permissions") && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenDialog()}
+              sx={{
+                background: "linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)",
+              }}
+            >
+              Agregar Permiso
+            </Button>
+          )}
+        </Box>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -270,9 +387,10 @@ export const UserPermissions = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                placeholder="Search permissions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar permisos..."
+                name="search"
+                value={searchFilters.search || ""}
+                onChange={handleChangeFilter}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -284,16 +402,17 @@ export const UserPermissions = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <FormControl fullWidth>
-                <InputLabel>Module</InputLabel>
+                <InputLabel>Módulo</InputLabel>
                 <Select
-                  value={selectedModule}
-                  label="Module"
-                  onChange={(e) => setSelectedModule(e.target.value)}
+                  label="Módulo"
+                  name="module"
+                  value={searchFilters.module || ""}
+                  onChange={handleChangeFilter}
                 >
-                  <MenuItem value="">All Modules</MenuItem>
-                  {modules.map((module) => (
-                    <MenuItem key={module.name} value={module.name}>
-                      {module.name}
+                  <MenuItem value="">Todos los Módulos</MenuItem>
+                  {uniqueModules.map((module) => (
+                    <MenuItem key={module} value={module}>
+                      {module}
                     </MenuItem>
                   ))}
                 </Select>
@@ -301,13 +420,14 @@ export const UserPermissions = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <FormControl fullWidth>
-                <InputLabel>Type</InputLabel>
+                <InputLabel>Tipo</InputLabel>
                 <Select
-                  value={selectedType}
-                  label="Type"
-                  onChange={(e) => setSelectedType(e.target.value)}
+                  label="Tipo"
+                  name="type"
+                  value={searchFilters.type || ""}
+                  onChange={handleChangeFilter}
                 >
-                  <MenuItem value="">All Types</MenuItem>
+                  <MenuItem value="">Todos los Tipos</MenuItem>
                   {permissionTypes.map((type) => (
                     <MenuItem key={type.value} value={type.value}>
                       {type.label}
@@ -321,121 +441,156 @@ export const UserPermissions = () => {
       </Card>
 
       {/* Grouped Permissions */}
-      {Object.entries(groupedPermissions).map(([moduleName, modulePermissions]) => (
-        <Accordion key={moduleName} defaultExpanded>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {getModuleIcon(moduleName)}
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {moduleName} ({modulePermissions.length})
-              </Typography>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails>
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Permission</TableCell>
-                    <TableCell>Display Name</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell>Created</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {modulePermissions.map((permission) => (
-                    <TableRow key={permission.id}>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                          {permission.name}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                          {permission.display_name || permission.name}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={permission.type || 'view'}
-                          size="small"
-                          color={getTypeColor(permission.type)}
-                          sx={{ textTransform: 'capitalize' }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {permission.description}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(permission.created_at)}</TableCell>
-                      <TableCell align="right">
-                        {hasPermission('users.permissions') && (
-                          <>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenDialog(permission)}
-                            >
-                              <EditIcon />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeletePermission(permission.id)}
-                              color="error"
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </>
-                        )}
-                      </TableCell>
+      {Object.entries(groupedPermissions).map(
+        ([moduleName, modulePermissions]) => (
+          <Accordion key={moduleName} defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                {getModuleIcon(moduleName)}
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {moduleName} ({modulePermissions.length})
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <TableContainer component={Paper} variant="outlined">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Permiso</TableCell>
+                      <TableCell>Nombre para Mostrar</TableCell>
+                      <TableCell>Tipo</TableCell>
+                      <TableCell>Descripción</TableCell>
+                      <TableCell>Creado</TableCell>
+                      <TableCell align="right">Acciones</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </AccordionDetails>
-        </Accordion>
-      ))}
+                  </TableHead>
+                  <TableBody>
+                    {modulePermissions.map((permission) => (
+                      <TableRow key={permission.id}>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontFamily: "monospace",
+                              fontSize: "0.75rem",
+                            }}
+                          >
+                            {permission.name}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 600 }}
+                          >
+                            {permission.display_name || permission.name}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={permission.type || "view"}
+                            size="small"
+                            color={getTypeColor(permission.type)}
+                            sx={{ textTransform: "capitalize" }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {permission.description}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(permission.created_at)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {hasPermission("users.permissions") && (
+                            <>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleOpenDialog(permission)}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={() =>
+                                  handleDeletePermission(permission.id)
+                                }
+                                color="error"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </AccordionDetails>
+          </Accordion>
+        )
+      )}
 
       {/* Add/Edit Permission Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
-          {editingPermission ? 'Edit Permission' : 'Add New Permission'}
+          {editingPermission ? "Editar Permiso" : "Agregar Nuevo Permiso"}
         </DialogTitle>
         <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Permission Name"
+                label="Nombre del Permiso"
                 value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., users.view"
-                helperText="Use dot notation (module.action)"
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="ej. users.view"
+                helperText="Usar notación de punto (modulo.accion)"
+                required
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Display Name"
+                label="Nombre para Mostrar"
                 value={formData.display_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, display_name: e.target.value }))}
-                placeholder="e.g., View Users"
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    display_name: e.target.value,
+                  }))
+                }
+                placeholder="ej. Ver Usuarios"
+                required
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Module</InputLabel>
+                <InputLabel>Módulo</InputLabel>
                 <Select
                   value={formData.module}
-                  label="Module"
-                  onChange={(e) => setFormData(prev => ({ ...prev, module: e.target.value }))}
+                  label="Módulo"
+                  onChange={(e) => handleModuleChange(e.target.value)}
+                  required
                 >
-                  {modules.map((module) => (
-                    <MenuItem key={module.name} value={module.name}>
-                      {module.name}
+                  {uniqueModules.map((module) => (
+                    <MenuItem key={module} value={module}>
+                      {module}
                     </MenuItem>
                   ))}
                 </Select>
@@ -443,11 +598,12 @@ export const UserPermissions = () => {
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Type</InputLabel>
+                <InputLabel>Tipo</InputLabel>
                 <Select
                   value={formData.type}
-                  label="Type"
-                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                  label="Tipo"
+                  onChange={(e) => handleTypeChange(e.target.value)}
+                  required
                 >
                   {permissionTypes.map((type) => (
                     <MenuItem key={type.value} value={type.value}>
@@ -460,27 +616,34 @@ export const UserPermissions = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Description"
+                label="Descripción"
                 multiline
                 rows={3}
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe what this permission allows"
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                placeholder="Describe qué permite este permiso"
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog}>Cancelar</Button>
           <Button
             onClick={handleSavePermission}
             variant="contained"
-            disabled={!formData.name || !formData.display_name || !formData.module}
+            disabled={
+              !formData.name || !formData.display_name || !formData.module
+            }
             sx={{
-              background: 'linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)',
+              background: "linear-gradient(135deg, #673ab7 0%, #9c27b0 100%)",
             }}
           >
-            {editingPermission ? 'Update' : 'Create'} Permission
+            {editingPermission ? "Actualizar" : "Crear"} Permiso
           </Button>
         </DialogActions>
       </Dialog>

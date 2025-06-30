@@ -143,6 +143,7 @@ export const modulesAPI = {
   update: (id, moduleData) => api.put(`/modules/${id}`, moduleData),
   delete: (id) => api.delete(`/modules/${id}`),
   getTree: () => api.get('/modules/tree'),
+  menu: () => api.get('/modules/menu'), // Nueva función para obtener el menú dinámico
 };
 
 // Funciones de API para dashboard

@@ -52,11 +52,16 @@ import {
   ChevronRight as ChevronRightIcon,
   Article as ArticleIcon,
   FullscreenExit,
+  Apps as AppsIcon,
+  Widgets as WidgetsIcon,
+  Security as SecurityIcon,
+  VpnKey as VpnKeyIcon,
+  Person as PersonIcon,
 } from "@mui/icons-material";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme as useCustomTheme } from "../contexts/ThemeContext";
-import { notificationsAPI } from "../utils/api";
+import { notificationsAPI, modulesAPI } from "../utils/api";
 
 const drawerWidth = 260;
 const collapsedDrawerWidth = 64;
@@ -75,142 +80,47 @@ const exitFullscreen = () => {
   else if (document.msExitFullscreen) document.msExitFullscreen();
 };
 
-// Definición de módulos exactamente como en las imágenes
-const menuModules = [
-  {
-    id: "dashboard",
-    title: "Dashboard",
-    items: [
-      {
-        text: "Default",
-        icon: <DashboardIcon />,
-        path: "/dashboard",
-        permission: "dashboard.view",
-      },
-      {
-        text: "Analytics",
-        icon: <BarChartIcon />,
-        path: "/dashboard/analytics-dashboard",
-        permission: "dashboard.analytics",
-      },
-    ],
-  },
-  {
-    id: "widget",
-    title: "Widget",
-    items: [
-      {
-        text: "Statistics",
-        icon: <TrendingUpIcon />,
-        path: "/dashboard/statistics",
-        permission: "widget.statistics",
-      },
-      {
-        text: "Data",
-        icon: <StorageIcon />,
-        path: "/dashboard/data",
-        permission: "widget.data",
-      },
-      {
-        text: "Chart",
-        icon: <PieChartIcon />,
-        path: "/dashboard/chart",
-        permission: "widget.chart",
-      },
-    ],
-  },
-  {
-    id: "application",
-    title: "Application",
-    items: [
-      {
-        text: "Users",
-        icon: <PeopleIcon />,
-        path: "/dashboard/users",
-        permission: "users.view",
-        expandable: true,
-        children: [
-          {
-            text: "User List",
-            path: "/dashboard/users",
-            permission: "users.view",
-          },
-          {
-            text: "User Roles",
-            path: "/dashboard/users/roles",
-            permission: "users.roles",
-          },
-          {
-            text: "Permissions",
-            path: "/dashboard/users/permissions",
-            permission: "users.permissions",
-          },
-        ],
-      },
-      {
-        text: "Customer",
-        icon: <GroupIcon />,
-        path: "/dashboard/customers",
-        permission: "customers.view",
-        expandable: true,
-        children: [
-          {
-            text: "Customer List",
-            path: "/dashboard/customers",
-            permission: "customers.view",
-          },
-          {
-            text: "Customer Details",
-            path: "/dashboard/customers/details",
-            permission: "customers.details",
-          },
-        ],
-      },
-      {
-        text: "Chat",
-        icon: <ChatIcon />,
-        path: "/dashboard/chat",
-        permission: "chat.view",
-      },
-      {
-        text: "Kanban",
-        icon: <KanbanIcon />,
-        path: "/dashboard/kanban",
-        permission: "kanban.view",
-      },
-      {
-        text: "Mail",
-        icon: <MailIcon />,
-        path: "/dashboard/mail",
-        permission: "mail.view",
-      },
-      {
-        text: "Calendar",
-        icon: <CalendarIcon />,
-        path: "/dashboard/calendar",
-        permission: "calendar.view",
-      },
-    ],
-  },
-  {
-    id: "system",
-    title: "System",
-    items: [
-      {
-        text: "Modules",
-        icon: <ArticleIcon />,
-        path: "/dashboard/modules",
-        permission: "system.settings",
-      },
-      {
-        text: "Settings",
-        icon: <SettingsIcon />,
-        path: "/dashboard/settings",
-        permission: "system.settings",
-      },
-    ],
-  },
-];
+// Mapeo de iconos
+const iconMap = {
+  DashboardIcon: <DashboardIcon />,
+  BarChartIcon: <BarChartIcon />,
+  TrendingUpIcon: <TrendingUpIcon />,
+  StorageIcon: <StorageIcon />,
+  PieChartIcon: <PieChartIcon />,
+  PeopleIcon: <PeopleIcon />,
+  SecurityIcon: <SecurityIcon />,
+  VpnKeyIcon: <VpnKeyIcon />,
+  GroupIcon: <GroupIcon />,
+  PersonIcon: <PersonIcon />,
+  ChatIcon: <ChatIcon />,
+  ViewKanbanIcon: <KanbanIcon />,
+  MailIcon: <MailIcon />,
+  CalendarTodayIcon: <CalendarIcon />,
+  ArticleIcon: <ArticleIcon />,
+  SettingsIcon: <SettingsIcon />,
+  AppsIcon: <AppsIcon />,
+  WidgetsIcon: <WidgetsIcon />,
+};
+
+// Mapeo de rutas
+const routeMap = {
+  'dashboard.default': '/dashboard',
+  'dashboard.analytics': '/dashboard/analytics-dashboard',
+  'widget.statistics': '/dashboard/statistics',
+  'widget.data': '/dashboard/data',
+  'widget.chart': '/dashboard/chart',
+  'users.list': '/dashboard/users',
+  'users.roles': '/dashboard/users/roles',
+  'users.permissions': '/dashboard/users/permissions',
+  'customers.list': '/dashboard/customers',
+  'customers.details': '/dashboard/customers/details',
+  'chat': '/dashboard/chat',
+  'kanban': '/dashboard/kanban',
+  'mail': '/dashboard/mail',
+  'calendar': '/dashboard/calendar',
+  'system.modules': '/dashboard/modules',
+  'system.settings': '/dashboard/settings',
+};
 
 export const DashboardLayout = () => {
   const theme = useTheme();
@@ -226,6 +136,8 @@ export const DashboardLayout = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [menuModules, setMenuModules] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const currentDrawerWidth = sidebarCollapsed
     ? collapsedDrawerWidth
@@ -233,18 +145,16 @@ export const DashboardLayout = () => {
 
   useEffect(() => {
     loadNotifications();
+    loadMenuModules();
   }, []);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      // document.fullscreenElement devuelve el elemento en pantalla completa o null
       setIsFullscreen(!!document.fullscreenElement);
     };
 
-    // Añadimos un listener para el evento de cambio de pantalla completa
     document.addEventListener("fullscreenchange", handleFullscreenChange);
 
-    // Es importante limpiar el listener cuando el componente se desmonte
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
@@ -257,7 +167,6 @@ export const DashboardLayout = () => {
       setUnreadCount(response.data.unread_count || 0);
     } catch (error) {
       console.error("Error loading notifications:", error);
-      // Fallback a datos mock
       const mockNotifications = [
         {
           id: 1,
@@ -270,6 +179,20 @@ export const DashboardLayout = () => {
       ];
       setNotifications(mockNotifications);
       setUnreadCount(1);
+    }
+  };
+
+  const loadMenuModules = async () => {
+    try {
+      setLoading(true);
+      const response = await modulesAPI.menu();
+      setMenuModules(response.data.data || []);
+    } catch (error) {
+      console.error("Error loading menu modules:", error);
+      // Fallback a menú estático si falla la API
+      setMenuModules([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -312,7 +235,7 @@ export const DashboardLayout = () => {
   };
 
   const handleExpandClick = (text) => {
-    if (sidebarCollapsed) return; // Don't expand when collapsed
+    if (sidebarCollapsed) return;
     setExpandedItems((prev) =>
       prev.includes(text)
         ? prev.filter((item) => item !== text)
@@ -336,17 +259,22 @@ export const DashboardLayout = () => {
     }
   };
 
-  const renderMenuItem = (item, depth = 0) => {
-    if (item.permission && !hasPermission(item.permission)) {
-      return null;
-    }
+  const getIcon = (iconName) => {
+    return iconMap[iconName] || <ArticleIcon />;
+  };
 
-    const isExpanded = expandedItems.includes(item.text);
+  const getRoute = (slug) => {
+    return routeMap[slug] || '#';
+  };
+
+  const renderMenuItem = (item, depth = 0) => {
     const hasChildren = item.children && item.children.length > 0;
-    const isActive = item.path === location.pathname;
+    const isExpanded = expandedItems.includes(item.name);
+    const route = getRoute(item.slug);
+    const isActive = route !== '#' && location.pathname === route;
 
     return (
-      <React.Fragment key={item.text}>
+      <React.Fragment key={item.id}>
         <ListItem disablePadding sx={{ display: "block" }}>
           <ListItemButton
             sx={{
@@ -367,9 +295,9 @@ export const DashboardLayout = () => {
             }}
             onClick={() => {
               if (hasChildren && !sidebarCollapsed) {
-                handleExpandClick(item.text);
-              } else if (item.path) {
-                navigate(item.path);
+                handleExpandClick(item.name);
+              } else if (route !== '#') {
+                navigate(route);
               }
             }}
           >
@@ -384,12 +312,12 @@ export const DashboardLayout = () => {
                 fontSize: "1.2rem",
               }}
             >
-              {item.icon}
+              {getIcon(item.icon)}
             </ListItemIcon>
             {!sidebarCollapsed && (
               <>
                 <ListItemText
-                  primary={item.text}
+                  primary={item.name}
                   sx={{
                     color: isActive
                       ? theme.palette.primary.main
@@ -428,11 +356,11 @@ export const DashboardLayout = () => {
   };
 
   const renderModule = (module) => {
-    const visibleItems = module.items?.filter(
-      (item) => !item.permission || hasPermission(item.permission)
-    );
+    const visibleItems = module.children?.filter(
+      (item) => item.status === 'active'
+    ) || [];
 
-    if (!visibleItems || visibleItems.length === 0) return null;
+    if (visibleItems.length === 0) return null;
 
     return (
       <Box key={module.id} sx={{ mb: 2 }}>
@@ -450,7 +378,7 @@ export const DashboardLayout = () => {
               fontSize: "0.75rem",
             }}
           >
-            {module.title}
+            {module.name}
           </Typography>
         )}
         <List dense>{visibleItems.map((item) => renderMenuItem(item))}</List>
@@ -499,7 +427,15 @@ export const DashboardLayout = () => {
 
       {/* Menu Items */}
       <Box sx={{ flex: 1, overflow: "auto", py: 1 }}>
-        {menuModules.map((module) => renderModule(module))}
+        {loading ? (
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Cargando menú...
+            </Typography>
+          </Box>
+        ) : (
+          menuModules.map((module) => renderModule(module))
+        )}
       </Box>
 
       {/* Collapse Button */}
