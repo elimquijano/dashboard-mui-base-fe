@@ -100,7 +100,9 @@ export const Modules = () => {
         ...searchFilters,
       };
       const response = await modulesAPI.getAll(params);
-      setModules(response.data.data || []);
+      // Fix: Extract the actual modules array from the nested response
+      const modulesData = response.data?.data?.data || response.data?.data || [];
+      setModules(modulesData);
     } catch (error) {
       console.error("Error loading modules:", error);
       setError("Error al cargar los módulos");
