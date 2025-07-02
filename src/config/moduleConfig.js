@@ -147,7 +147,7 @@ import {
   DeviceHub as DeviceHubIcon,
   Dns as DnsIcon,
   VpnLock as VpnLockIcon,
-  HttpsIcon,
+  Https as HttpsIcon,
   Lock as LockIcon,
   LockOpen as LockOpenIcon,
   Key as KeyIcon,
