@@ -161,7 +161,6 @@ import {
   Search as SearchIcon,
   FindInPage as FindInPageIcon,
   FindReplace as FindReplaceIcon,
-  Zoom as ZoomIcon,
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
   Fullscreen as FullscreenIcon,
@@ -517,24 +516,6 @@ export const componentMap = {
   Calendar,
   Modules,
   Settings,
-  
-  // Agregar nuevos componentes aquí cuando los crees
-  // Ejemplo:
-  // ProductList,
-  // ProductCreate,
-  // ProductEdit,
-  // InventoryDashboard,
-  // CategoryList,
-  // SupplierList,
-  // OrderList,
-  // InvoiceList,
-  // ReportSales,
-  // ReportInventory,
-  // UserProfile,
-  // CompanySettings,
-  // SystemLogs,
-  // BackupRestore,
-  // etc...
 };
 
 // Mapeo de iconos - AQUÍ TIENES TODOS LOS ICONOS DISPONIBLES
@@ -683,7 +664,6 @@ export const iconMap = {
   SearchIcon: <SearchIcon />,
   FindInPageIcon: <FindInPageIcon />,
   FindReplaceIcon: <FindReplaceIcon />,
-  ZoomIcon: <ZoomIcon />,
   ZoomInIcon: <ZoomInIcon />,
   ZoomOutIcon: <ZoomOutIcon />,
   FullscreenIcon: <FullscreenIcon />,
