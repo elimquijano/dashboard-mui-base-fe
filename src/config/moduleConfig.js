@@ -1,4 +1,3 @@
-// src/config/moduleConfig.js
 import React from "react";
 
 // Importar todos los componentes
