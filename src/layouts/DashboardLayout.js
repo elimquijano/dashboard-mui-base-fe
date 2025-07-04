@@ -47,7 +47,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { useTheme as useCustomTheme } from "../contexts/ThemeContext";
 import { notificationsAPI, modulesAPI } from "../utils/api";
 import { getIcon } from "../config/moduleConfig";
-import { WebSocketProvider } from "../contexts/SocketContext";
 import { DynamicRoutes } from "../routes/DynamicRouteGenerator";
 import { findFirstValidRoute } from "../utils/navigationUtils";
 
@@ -407,414 +406,412 @@ export const DashboardLayout = () => {
   );
 
   return (
-    <WebSocketProvider>
-      <Box sx={{ display: "flex" }}>
-        {/* Header */}
-        <AppBar
-          position="fixed"
-          sx={{
-            width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
-            ml: { sm: `${currentDrawerWidth}px` },
-            backgroundColor: theme.palette.background.paper,
-            color: theme.palette.text.primary,
-            boxShadow: "none",
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            transition: theme.transitions.create(["width", "margin"], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.leavingScreen,
-            }),
-          }}
-        >
-          <Toolbar sx={{ minHeight: "64px !important" }}>
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { sm: "none" } }}
-            >
-              <MenuIcon />
-            </IconButton>
+    <Box sx={{ display: "flex" }}>
+      {/* Header */}
+      <AppBar
+        position="fixed"
+        sx={{
+          width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
+          ml: { sm: `${currentDrawerWidth}px` },
+          backgroundColor: theme.palette.background.paper,
+          color: theme.palette.text.primary,
+          boxShadow: "none",
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          transition: theme.transitions.create(["width", "margin"], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.leavingScreen,
+          }),
+        }}
+      >
+        <Toolbar sx={{ minHeight: "64px !important" }}>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
 
-            {/* Search */}
+          {/* Search */}
+          <Box
+            sx={{
+              position: "relative",
+              borderRadius: 1,
+              backgroundColor: alpha(theme.palette.common.black, 0.04),
+              "&:hover": {
+                backgroundColor: alpha(theme.palette.common.black, 0.06),
+              },
+              marginLeft: 0,
+              width: "100%",
+              maxWidth: 300,
+            }}
+          >
             <Box
               sx={{
-                position: "relative",
-                borderRadius: 1,
-                backgroundColor: alpha(theme.palette.common.black, 0.04),
-                "&:hover": {
-                  backgroundColor: alpha(theme.palette.common.black, 0.06),
-                },
-                marginLeft: 0,
+                padding: theme.spacing(0, 2),
+                height: "100%",
+                position: "absolute",
+                pointerEvents: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <SearchIcon fontSize="small" />
+            </Box>
+            <InputBase
+              placeholder="Search"
+              sx={{
+                color: "inherit",
                 width: "100%",
-                maxWidth: 300,
+                "& .MuiInputBase-input": {
+                  padding: theme.spacing(1, 1, 1, 0),
+                  paddingLeft: `calc(1em + ${theme.spacing(4)})`,
+                  fontSize: "0.875rem",
+                },
+              }}
+            />
+          </Box>
+
+          <Box sx={{ flexGrow: 1 }} />
+
+          {/* Header Actions */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Tooltip title="Toggle Dark Mode">
+              <IconButton color="inherit" onClick={toggleDarkMode}>
+                {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Fullscreen">
+              <IconButton color="inherit" onClick={handleToggleFullscreen}>
+                {isFullscreen ? <FullscreenExit /> : <FullscreenIcon />}
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Notifications">
+              <IconButton color="inherit" onClick={handleNotificationClick}>
+                <Badge badgeContent={unreadCount} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Profile">
+              <IconButton
+                size="large"
+                aria-label="account of current user"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
+                onClick={handleMenu}
+                color="inherit"
+                sx={{ ml: 1 }}
+              >
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: theme.palette.primary.main,
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)}
+                  {user?.last_name?.charAt(0)}
+                </Avatar>
+              </IconButton>
+            </Tooltip>
+
+            {/* Notifications Menu */}
+            <Menu
+              anchorEl={notificationAnchor}
+              open={Boolean(notificationAnchor)}
+              onClose={handleNotificationClose}
+              PaperProps={{
+                sx: {
+                  width: 330,
+                  maxHeight: 500,
+                  mt: 1,
+                  border: `1px solid ${theme.palette.divider}`,
+                },
+              }}
+              transformOrigin={{ horizontal: "right", vertical: "top" }}
+              anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+            >
+              {/* Header de notificaciones */}
+              <Box
+                sx={{
+                  p: 2,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 1,
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
+                    All Notification
+                    <Chip
+                      label={unreadCount.toString().padStart(2, "0")}
+                      color="warning"
+                      size="small"
+                      sx={{ fontSize: "0.75rem", height: 20 }}
+                    />
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  onClick={markAllAsRead}
+                  sx={{
+                    color: theme.palette.primary.main,
+                    textTransform: "none",
+                    p: 0,
+                  }}
+                >
+                  Mark as all read
+                </Button>
+              </Box>
+
+              {/* Lista de notificaciones */}
+              <Box sx={{ maxHeight: 300, overflow: "auto" }}>
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <Box
+                      key={notification.id}
+                      sx={{
+                        p: 2,
+                        borderBottom: `1px solid ${theme.palette.divider}`,
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 600, fontSize: "0.875rem" }}
+                      >
+                        {notification.title}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ fontSize: "0.75rem", mt: 0.5 }}
+                      >
+                        {notification.message}
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          mt: 1,
+                        }}
+                      >
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(notification.created_at).toLocaleString()}
+                        </Typography>
+                        {!notification.read_at && (
+                          <Chip
+                            label="Unread"
+                            color="error"
+                            size="small"
+                            sx={{ fontSize: "0.6rem", height: 18 }}
+                          />
+                        )}
+                      </Box>
+                    </Box>
+                  ))
+                ) : (
+                  <Box sx={{ p: 2, textAlign: "center" }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No notifications
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+
+              {/* Footer */}
+              <Box
+                sx={{
+                  p: 2,
+                  textAlign: "center",
+                  borderTop: `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                <Button color="primary" sx={{ textTransform: "none" }}>
+                  View All
+                </Button>
+              </Box>
+            </Menu>
+
+            {/* User Menu */}
+            <Menu
+              id="menu-appbar"
+              anchorEl={anchorEl}
+              anchorOrigin={{
+                vertical: "bottom",
+                horizontal: "right",
+              }}
+              keepMounted
+              transformOrigin={{
+                vertical: "top",
+                horizontal: "right",
+              }}
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+              PaperProps={{
+                sx: {
+                  width: 290,
+                  mt: 1,
+                },
               }}
             >
               <Box
                 sx={{
-                  padding: theme.spacing(0, 2),
-                  height: "100%",
-                  position: "absolute",
-                  pointerEvents: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  p: 2,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
                 }}
               >
-                <SearchIcon fontSize="small" />
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Hola, {user?.first_name} {user?.last_name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {user?.roles?.[0]?.name || "User"}
+                </Typography>
               </Box>
-              <InputBase
-                placeholder="Search"
-                sx={{
-                  color: "inherit",
-                  width: "100%",
-                  "& .MuiInputBase-input": {
-                    padding: theme.spacing(1, 1, 1, 0),
-                    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-                    fontSize: "0.875rem",
-                  },
-                }}
-              />
-            </Box>
 
-            <Box sx={{ flexGrow: 1 }} />
+              <Box sx={{ p: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={isDarkMode}
+                      onChange={toggleDarkMode}
+                      color="primary"
+                    />
+                  }
+                  label="Modo Oscuro"
+                  sx={{ mb: 1 }}
+                />
+                <FormControlLabel
+                  control={<Switch color="primary" />}
+                  label="Permitir Notificaciones"
+                />
+              </Box>
 
-            {/* Header Actions */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Tooltip title="Toggle Dark Mode">
-                <IconButton color="inherit" onClick={toggleDarkMode}>
-                  {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
-                </IconButton>
-              </Tooltip>
+              <Divider />
 
-              <Tooltip title="Fullscreen">
-                <IconButton color="inherit" onClick={handleToggleFullscreen}>
-                  {isFullscreen ? <FullscreenExit /> : <FullscreenIcon />}
-                </IconButton>
-              </Tooltip>
+              <MenuItem onClick={() => navigate("/dashboard/settings")}>
+                <ListItemIcon>
+                  <SettingsIcon fontSize="small" />
+                </ListItemIcon>
+                Configuración de Cuenta
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handleLogout}>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" />
+                </ListItemIcon>
+                Cerrar Sesión
+              </MenuItem>
+            </Menu>
+          </Box>
+        </Toolbar>
+      </AppBar>
 
-              <Tooltip title="Notifications">
-                <IconButton color="inherit" onClick={handleNotificationClick}>
-                  <Badge badgeContent={unreadCount} color="error">
-                    <NotificationsIcon />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title="Profile">
-                <IconButton
-                  size="large"
-                  aria-label="account of current user"
-                  aria-controls="menu-appbar"
-                  aria-haspopup="true"
-                  onClick={handleMenu}
-                  color="inherit"
-                  sx={{ ml: 1 }}
-                >
-                  <Avatar
-                    sx={{
-                      width: 32,
-                      height: 32,
-                      bgcolor: theme.palette.primary.main,
-                      fontSize: "0.875rem",
-                    }}
-                  >
-                    {user?.first_name?.charAt(0)}
-                    {user?.last_name?.charAt(0)}
-                  </Avatar>
-                </IconButton>
-              </Tooltip>
-
-              {/* Notifications Menu */}
-              <Menu
-                anchorEl={notificationAnchor}
-                open={Boolean(notificationAnchor)}
-                onClose={handleNotificationClose}
-                PaperProps={{
-                  sx: {
-                    width: 330,
-                    maxHeight: 500,
-                    mt: 1,
-                    border: `1px solid ${theme.palette.divider}`,
-                  },
-                }}
-                transformOrigin={{ horizontal: "right", vertical: "top" }}
-                anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-              >
-                {/* Header de notificaciones */}
-                <Box
-                  sx={{
-                    p: 2,
-                    borderBottom: `1px solid ${theme.palette.divider}`,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography
-                      variant="subtitle1"
-                      sx={{
-                        fontWeight: 600,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                      }}
-                    >
-                      All Notification
-                      <Chip
-                        label={unreadCount.toString().padStart(2, "0")}
-                        color="warning"
-                        size="small"
-                        sx={{ fontSize: "0.75rem", height: 20 }}
-                      />
-                    </Typography>
-                  </Box>
-                  <Button
-                    size="small"
-                    onClick={markAllAsRead}
-                    sx={{
-                      color: theme.palette.primary.main,
-                      textTransform: "none",
-                      p: 0,
-                    }}
-                  >
-                    Mark as all read
-                  </Button>
-                </Box>
-
-                {/* Lista de notificaciones */}
-                <Box sx={{ maxHeight: 300, overflow: "auto" }}>
-                  {notifications.length > 0 ? (
-                    notifications.map((notification) => (
-                      <Box
-                        key={notification.id}
-                        sx={{
-                          p: 2,
-                          borderBottom: `1px solid ${theme.palette.divider}`,
-                        }}
-                      >
-                        <Typography
-                          variant="subtitle2"
-                          sx={{ fontWeight: 600, fontSize: "0.875rem" }}
-                        >
-                          {notification.title}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ fontSize: "0.75rem", mt: 0.5 }}
-                        >
-                          {notification.message}
-                        </Typography>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            mt: 1,
-                          }}
-                        >
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(notification.created_at).toLocaleString()}
-                          </Typography>
-                          {!notification.read_at && (
-                            <Chip
-                              label="Unread"
-                              color="error"
-                              size="small"
-                              sx={{ fontSize: "0.6rem", height: 18 }}
-                            />
-                          )}
-                        </Box>
-                      </Box>
-                    ))
-                  ) : (
-                    <Box sx={{ p: 2, textAlign: "center" }}>
-                      <Typography variant="body2" color="text.secondary">
-                        No notifications
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-
-                {/* Footer */}
-                <Box
-                  sx={{
-                    p: 2,
-                    textAlign: "center",
-                    borderTop: `1px solid ${theme.palette.divider}`,
-                  }}
-                >
-                  <Button color="primary" sx={{ textTransform: "none" }}>
-                    View All
-                  </Button>
-                </Box>
-              </Menu>
-
-              {/* User Menu */}
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorEl}
-                anchorOrigin={{
-                  vertical: "bottom",
-                  horizontal: "right",
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: "top",
-                  horizontal: "right",
-                }}
-                open={Boolean(anchorEl)}
-                onClose={handleClose}
-                PaperProps={{
-                  sx: {
-                    width: 290,
-                    mt: 1,
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    p: 2,
-                    borderBottom: `1px solid ${theme.palette.divider}`,
-                  }}
-                >
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Hola, {user?.first_name} {user?.last_name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {user?.roles?.[0]?.name || "User"}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ p: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={isDarkMode}
-                        onChange={toggleDarkMode}
-                        color="primary"
-                      />
-                    }
-                    label="Modo Oscuro"
-                    sx={{ mb: 1 }}
-                  />
-                  <FormControlLabel
-                    control={<Switch color="primary" />}
-                    label="Permitir Notificaciones"
-                  />
-                </Box>
-
-                <Divider />
-
-                <MenuItem onClick={() => navigate("/dashboard/settings")}>
-                  <ListItemIcon>
-                    <SettingsIcon fontSize="small" />
-                  </ListItemIcon>
-                  Configuración de Cuenta
-                </MenuItem>
-                <Divider />
-                <MenuItem onClick={handleLogout}>
-                  <ListItemIcon>
-                    <LogoutIcon fontSize="small" />
-                  </ListItemIcon>
-                  Cerrar Sesión
-                </MenuItem>
-              </Menu>
-            </Box>
-          </Toolbar>
-        </AppBar>
-
-        {/* Sidebar */}
-        <Box
-          component="nav"
+      {/* Sidebar */}
+      <Box
+        component="nav"
+        sx={{
+          width: { sm: currentDrawerWidth },
+          flexShrink: { sm: 0 },
+          transition: theme.transitions.create("width", {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.leavingScreen,
+          }),
+        }}
+      >
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{
+            keepMounted: true,
+          }}
           sx={{
-            width: { sm: currentDrawerWidth },
-            flexShrink: { sm: 0 },
-            transition: theme.transitions.create("width", {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.leavingScreen,
-            }),
+            display: { xs: "block", sm: "none" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
+              width: drawerWidth,
+              borderRight: `1px solid ${theme.palette.divider}`,
+            },
           }}
         >
-          <Drawer
-            variant="temporary"
-            open={mobileOpen}
-            onClose={handleDrawerToggle}
-            ModalProps={{
-              keepMounted: true,
-            }}
-            sx={{
-              display: { xs: "block", sm: "none" },
-              "& .MuiDrawer-paper": {
-                boxSizing: "border-box",
-                width: drawerWidth,
-                borderRight: `1px solid ${theme.palette.divider}`,
-              },
-            }}
-          >
-            {drawer}
-          </Drawer>
-          <Drawer
-            variant="permanent"
-            sx={{
-              display: { xs: "none", sm: "block" },
-              "& .MuiDrawer-paper": {
-                boxSizing: "border-box",
-                width: currentDrawerWidth,
-                borderRight: `1px solid ${theme.palette.divider}`,
-                transition: theme.transitions.create("width", {
-                  easing: theme.transitions.easing.sharp,
-                  duration: theme.transitions.duration.leavingScreen,
-                }),
-              },
-            }}
-            open
-          >
-            {drawer}
-          </Drawer>
-        </Box>
-
-        {/* Main Content */}
-        <Box
-          component="main"
+          {drawer}
+        </Drawer>
+        <Drawer
+          variant="permanent"
           sx={{
-            flexGrow: 1,
-            p: 3,
-            width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
-            mt: "64px",
-            backgroundColor: theme.palette.background.default,
-            minHeight: "calc(100vh - 64px)",
-            transition: theme.transitions.create(["width", "margin"], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.leavingScreen,
-            }),
+            display: { xs: "none", sm: "block" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
+              width: currentDrawerWidth,
+              borderRight: `1px solid ${theme.palette.divider}`,
+              transition: theme.transitions.create("width", {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.leavingScreen,
+              }),
+            },
           }}
+          open
         >
-          {loading ? (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                height: "calc(100vh - 64px)",
-              }}
-            >
-              <CircularProgress />
-            </Box>
-          ) : // Si menuModules está vacío después de cargar, significa que el usuario no tiene acceso a NADA.
-          menuModules.length > 0 ? (
-            <DynamicRoutes navConfig={menuModules} />
-          ) : (
-            <Navigate to="/unauthorized" replace />
-          )}
-        </Box>
+          {drawer}
+        </Drawer>
       </Box>
-    </WebSocketProvider>
+
+      {/* Main Content */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: `calc(100% - ${currentDrawerWidth}px)` },
+          mt: "64px",
+          backgroundColor: theme.palette.background.default,
+          minHeight: "calc(100vh - 64px)",
+          transition: theme.transitions.create(["width", "margin"], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.leavingScreen,
+          }),
+        }}
+      >
+        {loading ? (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "calc(100vh - 64px)",
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        ) : // Si menuModules está vacío después de cargar, significa que el usuario no tiene acceso a NADA.
+        menuModules.length > 0 ? (
+          <DynamicRoutes navConfig={menuModules} />
+        ) : (
+          <Navigate to="/unauthorized" replace />
+        )}
+      </Box>
+    </Box>
   );
 };
